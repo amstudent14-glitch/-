@@ -1,0 +1,21 @@
+{
+    "name": "極光之旅打包清單",
+    "short_name": "極光清單",
+    "description": "為黃刀鎮極光旅行量身打造的極地打包清單，支援主題顏色自訂。",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#059669",
+    "icons": [
+        {
+            "src": "https://placehold.co/192x192/059669/ffffff?text=%E2%9C%88%EF%B8%8F",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "https://placehold.co/512x512/059669/ffffff?text=%E2%9C%88%EF%B8%8F",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
