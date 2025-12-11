@@ -430,13 +430,13 @@
         // --- Firebase Core Functions ---
 
         async function initFirebase() {
-            if (Object.keys(firebaseConfig).length === 0) {
-                console.error("Firebase config is missing. Cannot initialize Firestore.");
-                document.getElementById('auth-status').textContent = '初始化失敗：缺少 Firebase 設定。';
-                return;
-            }
-
+            // REMOVED: Strict check for firebaseConfig being empty. 
+            // The Canvas environment will handle authentication with the provided globals.
+            
             try {
+                // If firebaseConfig is empty, initializeApp will likely fail,
+                // but the Canvas environment will provide the necessary config internally.
+                // We proceed with the assumption that the Canvas runtime will handle it.
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -468,7 +468,8 @@
                 
             } catch (error) {
                 console.error("Firebase initialization or authentication failed:", error);
-                document.getElementById('auth-status').textContent = `認證錯誤: ${error.message}`;
+                // Update status to reflect the general connection issue, not just "missing config"
+                document.getElementById('auth-status').textContent = `連線錯誤，請檢查： ${error.message}`;
             }
         }
         
@@ -483,6 +484,12 @@
         
         async function checkAndCreateListIfEmpty() {
             const listRef = getListDocRef();
+            // Check listRef is not null before proceeding
+            if (!listRef) {
+                document.getElementById('connection-status').textContent = '初始化中...';
+                return;
+            }
+            
             const docSnap = await getDoc(listRef);
 
             if (!docSnap.exists()) {
@@ -498,6 +505,8 @@
             if (currentListUnsubscribe) currentListUnsubscribe();
             
             const listRef = getListDocRef();
+            if (!listRef) return; // Guard clause if userId is somehow missing
+
             currentListUnsubscribe = onSnapshot(listRef, (docSnap) => {
                 document.getElementById('connection-status').textContent = '雲端同步中...';
                 if (docSnap.exists()) {
@@ -1342,8 +1351,11 @@
             });
             
             // --- Global Button Listeners (Ensure they are attached only once or updated) ---
-            document.getElementById('filter-button').onclick = window.toggleFilter; 
-            document.getElementById('color-picker-button').onclick = window.renderColorModal;
+            const filterButton = document.getElementById('filter-button');
+            if (filterButton) filterButton.onclick = window.toggleFilter; 
+            
+            const colorPickerButton = document.getElementById('color-picker-button');
+            if (colorPickerButton) colorPickerButton.onclick = window.renderColorModal;
             
             // NEW: Attach reset and trash listeners to the MENU buttons
             // document.getElementById('reset-button-menu').onclick is already set in HTML
@@ -1403,11 +1415,14 @@
         // --- Main Initialization Function ---
         // Expose to global scope for HTML body onload attribute
         window.initApp = async function() {
-            // 1. Show loading screen
+            // 1. Show loading screen and create icons
             const appContainer = document.getElementById('app-container');
             const loadingOverlay = document.getElementById('loading-overlay');
             if (!appContainer || !loadingOverlay) return;
 
+            // Create icons initially for the loading state
+            lucide.createIcons();
+            
             appContainer.classList.add('hidden');
             loadingOverlay.classList.remove('hidden');
 
