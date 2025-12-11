@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>行李清單 App (極地主題與自訂色)</title>
+    <title>行李清單 App (單清單與排序)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons CDN -->
@@ -14,11 +14,7 @@
     <meta name="apple-mobile-web-app-title" content="極光清單">
     <meta name="application-name" content="極光清單">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    
-    <!-- IMPORTANT: Link to the Manifest File for PWA functionality -->
     <link rel="manifest" href="manifest.json"/> 
-
-    <!-- Apple Touch Icon (Using a placeholder aurora icon URL) -->
     <link rel="apple-touch-icon" href="https://placehold.co/180x180/0d9488/ffffff?text=%E2%9C%88%EF%B8%8F"> 
     <link rel="icon" href="https://placehold.co/192x192/0d9488/ffffff?text=%E2%9C%88%EF%B8%8F"> 
     
@@ -26,11 +22,11 @@
         /* --- Dynamic Theme Variables (Default to Teal) --- */
         :root {
             /* RGB values for main theme color (Teal 600) */
-            --color-main-600: 5 150 105; 
-            --color-main-800: 4 78 59;  
+            --color-main-600: 5 150, 105; 
+            --color-main-800: 4 78, 59;  
             --color-main-300: 52 211, 153; 
-            --color-main-100: 209 250 229; 
-            --color-main-50: 236 253 245; 
+            --color-main-100: 209 250, 229; 
+            --color-main-50: 236 253, 245; 
         }
 
         /* --- Theme Utility Classes (Using Variables) --- */
@@ -42,8 +38,6 @@
         .text-theme-900 { color: rgb(var(--color-main-800)); }
         .focus-ring-theme-500:focus { --tw-ring-color: rgb(var(--color-main-600)); }
         .hover\:border-theme-300:hover { border-color: rgb(var(--color-main-300)); }
-
-        /* --- Custom Checkbox Styling using Variables --- */
         .check-button.checked {
             background-color: rgb(var(--color-main-600));
             border-color: rgb(var(--color-main-600));
@@ -51,8 +45,6 @@
         .check-button:hover:not(.checked) {
             border-color: rgb(var(--color-main-300)); 
         }
-
-        /* --- General Styles --- */
         .lucide {
             display: inline-block;
             stroke-width: 2;
@@ -82,26 +74,82 @@
             z-index: 25;
             background: rgba(0, 0, 0, 0.4);
         }
+        /* New CSS for Drag and Drop */
+        #category-sort-list .dragging {
+            opacity: 0.5;
+            background-color: rgb(var(--color-main-50)); 
+            border: 2px dashed rgb(var(--color-main-600));
+            transform: scale(0.98);
+        }
+        /* Added CSS for Filtered (checked) items */
+        .item-list-container .item-hidden {
+             display: none;
+        }
+        /* Style for the fixed buttons at the bottom of the nav menu */
+        .nav-menu-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem;
+            border-top: 1px solid #e5e7eb;
+            background-color: white;
+            z-index: 40;
+        }
     </style>
 </head>
-<body class="bg-slate-50 font-sans" onload="initApp()">
+<!-- Fix: Call window.initApp() because it is defined within a module script -->
+<body class="bg-slate-50 font-sans" onload="window.initApp()"> 
 
     <!-- Navigation Drawer (Hamburger Menu) -->
     <div id="nav-menu-backdrop" class="fixed inset-0" onclick="toggleNavMenu()"></div>
     <div id="nav-menu" class="fixed top-0 right-0 h-full w-64 bg-white shadow-2xl p-6 overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3 mb-4">
-            <h3 class="text-lg font-bold text-slate-700">清單分類</h3>
+            <h3 class="text-lg font-bold text-slate-700">清單操作與分類</h3>
             <button onclick="toggleNavMenu()" class="text-slate-500 hover:text-slate-700">
                 <i data-lucide="x" class="lucide w-6 h-6"></i>
             </button>
         </div>
-        <ul id="nav-links" class="space-y-3">
+        
+        <!-- Category Sort Button -->
+        <button onclick="window.renderCategorySortModal()" class="w-full py-2 mb-4 text-left px-3 rounded-lg bg-theme-50 text-theme-900 font-semibold hover:bg-theme-100 transition-colors flex items-center gap-2">
+            <i data-lucide="list-ordered" class="lucide w-5 h-5"></i>
+            管理分類排序
+        </button>
+
+        <h4 class="text-sm font-semibold text-slate-500 mb-2">當前清單分類：</h4>
+        <ul id="nav-links" class="space-y-3 pb-36">
             <!-- Navigation links will be populated here -->
         </ul>
+        
+        <!-- NEW: Footer for Trash and Reset Buttons -->
+        <div class="nav-menu-footer space-y-2">
+            <!-- Trash Button (Moved from Header) -->
+            <button id="trash-button-menu" onclick="window.openTrashModal()" class="w-full py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-semibold flex items-center justify-between px-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="trash-2" class="lucide w-5 h-5 text-red-500"></i>
+                    <span>回收站</span>
+                </div>
+                <span id="trash-count-menu" class="text-xs bg-red-500 rounded-full w-5 h-5 flex items-center justify-center text-white font-bold">0</span>
+            </button>
+            
+            <!-- Reset Button (Moved from Header) -->
+            <button id="reset-button-menu" onclick="triggerResetList()" class="w-full py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold flex items-center justify-center gap-2">
+                <i data-lucide="rotate-ccw" class="lucide w-5 h-5"></i>
+                完全重置清單
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-50 flex flex-col items-center justify-center z-50 transition-opacity duration-300">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-theme border-t-transparent mb-4"></div>
+        <p class="text-slate-700 font-semibold">載入中，請稍候...</p>
+        <p id="auth-status" class="text-xs text-slate-500 mt-2">連線中...</p>
     </div>
 
     <!-- Main Container -->
-    <div id="app-container">
+    <div id="app-container" class="min-h-screen hidden">
         
         <!-- Header -->
         <div id="main-header" class="bg-theme text-white shadow-lg sticky top-0">
@@ -109,27 +157,25 @@
                 <div class="flex justify-between items-center mb-2">
                     <!-- Editable Title -->
                     <h1 class="text-xl font-bold flex items-center gap-2 cursor-pointer" onclick="editTitle()">
-                        <i data-lucide="sparkles" class="lucide w-6 h-6"></i>
-                        <span id="app-title">黃刀鎮極光之旅清單</span>
+                        <i data-lucide="snowflake" class="lucide w-6 h-6"></i>
+                        <span id="app-title">載入中...</span>
                         <i data-lucide="pencil" class="lucide w-3 h-3 text-theme-100"></i>
                     </h1>
                     
                     <div class="flex space-x-3 items-center">
-                        <!-- Color Picker Button -->
+                        <!-- Filter Button -->
+                        <button id="filter-button" class="text-theme-100 hover:text-white transition-colors flex items-center gap-1" title="切換顯示模式">
+                            <i data-lucide="eye" class="lucide w-5 h-5 lucide-icon"></i> 
+                            <span id="filter-text" class="text-sm font-medium">顯示全部</span>
+                        </button>
+                        
+                         <!-- Color Picker Button -->
                         <button id="color-picker-button" class="text-theme-100 hover:text-white transition-colors" title="更改主題顏色">
                             <i data-lucide="palette" class="lucide w-5 h-5"></i>
                         </button>
-                        <!-- Trash Button -->
-                        <button id="trash-button" class="text-theme-100 hover:text-red-300 transition-colors" title="回收站">
-                            <i data-lucide="trash-2" class="lucide w-5 h-5"></i>
-                            <span id="trash-count" class="absolute -mt-2 -ml-2 text-[10px] bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-white font-bold" style="display:none;">0</span>
-                        </button>
-                        <!-- Reset Button -->
-                        <button id="reset-button" class="text-theme-100 hover:text-white transition-colors" title="重置清單">
-                            <i data-lucide="rotate-ccw" class="lucide w-5 h-5"></i>
-                        </button>
+
                         <!-- Hamburger Menu Button -->
-                        <button id="menu-button" class="text-theme-100 hover:text-white transition-colors" title="分類導航" onclick="toggleNavMenu()">
+                        <button id="menu-button" class="text-theme-100 hover:text-white transition-colors" title="分類導航與清單管理" onclick="toggleNavMenu()">
                             <i data-lucide="menu" class="lucide w-6 h-6"></i>
                         </button>
                     </div>
@@ -143,6 +189,10 @@
                 <div id="progress-message" class="text-xs text-theme-100 mt-1 text-right">
                     繼續加油！
                 </div>
+                <!-- User ID for Debug/Sharing -->
+                <p class="text-[10px] text-theme-100 mt-1">
+                    User ID: <span id="user-id">...</span> | List ID: <span id="list-id">...</span>
+                </p>
             </div>
         </div>
 
@@ -150,14 +200,24 @@
         <div id="list-container" class="max-w-md mx-auto px-4 py-6 space-y-6 pb-12">
             <!-- List items will be rendered here by JavaScript -->
         </div>
+        
+        <!-- Add Category Button -->
+        <div class="max-w-md mx-auto px-4 pb-12">
+            <button onclick="renderCategoryModal()" class="w-full py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 transition-colors font-semibold flex items-center justify-center gap-2">
+                <i data-lucide="folder-plus" class="lucide w-5 h-5"></i>
+                + 新增分類
+            </button>
+        </div>
 
         <div class="max-w-md mx-auto px-4 text-center text-slate-400 text-xs pb-4">
             <p class="flex items-center justify-center gap-1">
-                <i data-lucide="luggage" class="lucide w-4 h-4"></i>
-                準備好出發了嗎？
+                <i data-lucide="cloud" class="lucide w-4 h-4"></i>
+                清單狀態：<span id="connection-status">雲端同步中...</span>
             </p>
         </div>
     </div>
+
+    <!-- --- Modals --- -->
 
     <!-- Color Picker Modal -->
     <dialog id="color-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
@@ -190,7 +250,7 @@
         </button>
     </dialog>
     
-    <!-- Title Edit Modal (Replaces prompt()) -->
+    <!-- Title Edit Modal -->
     <dialog id="title-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
         <h3 class="text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
             <i data-lucide="pencil" class="lucide w-5 h-5 text-theme"></i>
@@ -202,8 +262,41 @@
             <button id="save-title-edit" class="py-2 px-4 bg-theme text-white rounded-lg hover:bg-theme-800 transition-colors">儲存</button>
         </div>
     </dialog>
+    
+    <!-- Add Category Modal -->
+    <dialog id="category-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
+        <h3 class="text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <i data-lucide="folder-plus" class="lucide w-5 h-5 text-theme"></i>
+            新增清單分類
+        </h3>
+        <input type="text" id="category-input" placeholder="例如：藥品、電子產品" class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-theme-500 text-lg mb-4" maxlength="30">
+        <div class="flex justify-end space-x-3">
+            <button id="cancel-category" class="py-2 px-4 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors">取消</button>
+            <button id="save-category" class="py-2 px-4 bg-theme text-white rounded-lg hover:bg-theme-800 transition-colors">新增</button>
+        </div>
+    </dialog>
 
-    <!-- Generic Confirmation Modal (Replaces confirm() for Reset/Empty Trash) -->
+    <!-- Category Sort Modal (Refactored from List Manager Modal) -->
+    <dialog id="category-sort-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-lg w-full">
+        <h3 class="text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <i data-lucide="list-ordered" class="lucide w-5 h-5 text-theme"></i>
+            清單分類排序
+        </h3>
+        
+        <p class="text-sm text-slate-500 mb-4">拖曳分類名稱即可調整顯示順序。</p>
+
+        <!-- Category Sort List -->
+        <div id="category-sort-list" class="space-y-3 max-h-80 overflow-y-auto pr-2">
+            <!-- Category items will be rendered here for drag and drop -->
+        </div>
+
+        <button onclick="document.getElementById('category-sort-modal').close()" class="mt-6 w-full py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors">
+            完成
+        </button>
+    </dialog>
+
+
+    <!-- Generic Confirmation Modal (Replaces prompt()/confirm()) -->
     <dialog id="confirm-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
         <h3 id="confirm-modal-title" class="text-xl font-bold mb-4 flex items-center gap-2 text-red-600">
             <i data-lucide="alert-triangle" class="lucide w-5 h-5"></i>
@@ -217,14 +310,39 @@
     </dialog>
 
 
-    <script>
-        // --- Storage Keys ---
-        const STORAGE_KEY_ITEMS = 'packing-list-v4-items';
-        const STORAGE_KEY_TRASH = 'packing-list-v4-trash';
-        const STORAGE_KEY_TITLE = 'packing-list-v4-title';
-        const STORAGE_KEY_COLOR = 'packing-list-v4-color';
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, query, onSnapshot, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- Firebase Globals ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let db, auth, userId = null;
+        let isAuthReady = false;
+        
+        // Use a fixed list ID for single-list mode
+        const FIXED_LIST_ID = 'yellowknife-packing-list'; 
+        const LISTS_COLLECTION_PATH = `/artifacts/${appId}/users/{userId}/lists`;
 
-        // --- Color Themes ---
+        // --- App State ---
+        let currentListId = FIXED_LIST_ID;
+        let currentListUnsubscribe = null; 
+        
+        let appTitle = "載入中...";
+        let appItems = {}; 
+        let trashItems = []; 
+        let categoryOrder = []; // To store the custom category order
+        let mainColorKey = 'emerald';
+        let confirmActionCallback = null; 
+        let showAllItems = true; // NEW STATE: True to show all, false to show only unchecked
+
+
+        // --- Color Themes (Expanded) ---
         // RGB tuples for 600, 800 (dark), 300 (light), 100 (accent), 50 (bg)
         const COLOR_THEMES = {
             emerald: { name: '極光綠', color: [5, 150, 105], dark: [4, 78, 59], light: [52, 211, 153], accent: [209, 250, 229], bg: [236, 253, 245] },
@@ -232,114 +350,415 @@
             rose: { name: '薔薇粉', color: [225, 29, 72], dark: [159, 18, 57], light: [251, 113, 133], accent: [255, 237, 240], bg: [255, 241, 245] },
             indigo: { name: '星空紫', color: [79, 70, 229], dark: [55, 48, 163], light: [129, 140, 248], accent: [224, 231, 255], bg: [238, 242, 255] },
             amber: { name: '日落黃', color: [245, 158, 11], dark: [180, 83, 9], light: [252, 211, 77], accent: [255, 251, 235], bg: [255, 253, 242] }, 
+            cyan: { name: '天空青', color: [6, 182, 212], dark: [8, 145, 178], light: [103, 232, 249], accent: [207, 250, 254], bg: [240, 253, 255] },
+            lime: { name: '檸檬綠', color: [101, 163, 13], dark: [77, 124, 15], light: [190, 242, 93], accent: [247, 254, 231], bg: [254, 255, 237] },
+            red: { name: '火山紅', color: [220, 38, 38], dark: [185, 28, 28], light: [252, 165, 165], accent: [254, 226, 226], bg: [255, 245, 245] },
         };
-        const DEFAULT_COLOR = 'emerald';
-        let mainColorKey = DEFAULT_COLOR;
-
-        // --- App Data (Updated for Yellowknife) ---
+        const DEFAULT_COLOR_KEY = 'blue'; // Changed default to blue for cold theme
         
+        // --- Initial Data for Yellowknife Aurora Trip ---
+        let itemIdCounter = 1;
+        const createItem = (text, checked = false) => ({ 
+            id: itemIdCounter++, 
+            text: text, 
+            checked: checked 
+        });
+
         const initialData = {
-            "極地保暖裝備": [
-                { id: 100, text: "雪褲 (防水防風)", checked: false },
-                { id: 101, text: "羽絨外套 (極地等級，-30°C)", checked: false },
-                { id: 102, text: "保暖內層衣褲 (羊毛或發熱衣)", checked: false },
-                { id: 103, text: "中層衣物 (刷毛或輕羽絨)", checked: false },
-                { id: 104, text: "羊毛襪 (至少3雙)", checked: false },
-                { id: 105, text: "雪靴 (防水防滑，耐低溫)", checked: false },
-                { id: 106, text: "防風防水手套 (兩層式最佳)", checked: false },
-                { id: 107, text: "毛帽/保暖頭套 (遮住耳朵和臉頰)", checked: false },
-                { id: 108, text: "暖暖包 (大量，貼式與手握式)", checked: false },
-                { id: 109, text: "圍巾/面罩 (防風，保護頸部)", checked: false },
+            title: "極光之旅：黃刀鎮打包清單",
+            theme: DEFAULT_COLOR_KEY,
+            // Categories tailored for sub-arctic trip
+            categoryOrder: [
+                "無敵重要文件", 
+                "極致禦寒衣物 (上層)",
+                "極致禦寒衣物 (中/內層)", 
+                "極光攝影器材",
+                "保暖配件與其他",
+                "隨身與個人用品",
             ],
-            "無敵重要物品": [
-                { id: 1, text: "護照", checked: false },
-                { id: 2, text: "手機", checked: false },
-                { id: 3, text: "SIM卡", checked: false },
-                { id: 4, text: "加幣 (現金)", checked: false },
-                { id: 5, text: "家鑰匙", checked: false },
-                { id: 6, text: "錢包", checked: false },
-            ],
-            "電子與攝影類": [
-                { id: 37, text: "相機+三腳架 (極光拍攝必備)", checked: false },
-                { id: 38, text: "備用電池 (低溫下電力流失快)", checked: false },
-                { id: 39, text: "充電線+充電頭", checked: false },
-                { id: 40, text: "行動電源", checked: false },
-                { id: 41, text: "筆電(電線+滑鼠)", checked: false },
-                { id: 42, text: "耳機", checked: false },
-            ],
-            "化妝品、盥洗與藥品": [
-                { id: 10, text: "牙刷牙膏", checked: false },
-                { id: 11, text: "高保濕乳液/面霜 (防凍傷)", checked: false },
-                { id: 12, text: "護唇膏 (極度保濕)", checked: false },
-                { id: 13, text: "凡士林 (塗抹臉部裸露處)", checked: false },
-                { id: 14, text: "眼藥水", checked: false },
-                { id: 15, text: "常備藥品 (感冒藥、止痛藥)", checked: false },
-                { id: 16, text: "暖色系化妝品", checked: false },
-            ],
-            "其他必需品": [
-                { id: 30, text: "雨傘/小型摺疊傘", checked: false },
-                { id: 31, text: "保溫瓶 (隨時補充熱飲)", checked: false },
-                { id: 32, text: "太陽眼鏡 (雪地防眩光)", checked: false },
-                { id: 33, text: "衛生紙/濕紙巾", checked: false },
-                { id: 34, text: "口罩 (防寒、乾燥)", checked: false },
-            ],
-            "額外 OPTIONAL": [
-                { id: 45, text: "延長線(多頭插座)", checked: false },
-                { id: 46, text: "U型枕", checked: false },
-                { id: 47, text: "環保袋", checked: false },
-                { id: 48, text: "眼罩、耳塞", checked: false },
-            ]
+            items: {
+                "無敵重要文件": [
+                    createItem("護照 & 簽證文件", false),
+                    createItem("機票/酒店/行程確認單", false),
+                    createItem("外幣 (加幣) 與信用卡", false),
+                    createItem("當地聯絡資訊/緊急電話", false),
+                    createItem("旅遊保險文件", false),
+                ],
+                "極致禦寒衣物 (上層)": [
+                    createItem("極地羽絨外套 (租賃或自備)", false),
+                    createItem("防水雪褲 (租賃或自備)", false),
+                    createItem("極地雪靴 (保暖度 -40°C 以上)", false),
+                    createItem("防水保暖手套 (兩雙備用)", false),
+                    createItem("厚羊毛帽/毛線帽 (遮住耳朵)", false),
+                ],
+                "極致禦寒衣物 (中/內層)": [
+                    createItem("發熱衣/羊毛內衣 (上衣 x 3)", false),
+                    createItem("刷毛/羊毛中層衣 (保暖層 x 2)", false),
+                    createItem("厚羊毛襪 (至少 4 雙)", false),
+                    createItem("保暖內褲/衛生褲", false),
+                    createItem("頸部保暖圍脖/魔術頭巾", false),
+                ],
+                "極光攝影器材": [
+                    createItem("單眼/微單眼相機 (可手動模式)", false),
+                    createItem("廣角鏡頭 (F2.8 或更大光圈)", false),
+                    createItem("穩固的三腳架", false),
+                    createItem("備用電池 (至少 3 顆，電量耗損快)", false),
+                    createItem("快門線或遙控器", false),
+                    createItem("大容量記憶卡", false),
+                    createItem("鏡頭擦拭布/吹氣球", false),
+                ],
+                "保暖配件與其他": [
+                    createItem("暖暖包 (手部、腳部、電池專用)", false),
+                    createItem("保溫瓶 (隨時補充熱飲)", false),
+                    createItem("護目鏡/滑雪鏡 (防風雪)", false),
+                    createItem("行動電源 (大容量)", false),
+                    createItem("小手電筒/頭燈 (紅光模式)", false),
+                ],
+                "隨身與個人用品": [
+                    createItem("轉接頭與多孔充電器", false),
+                    createItem("高保濕乳液/凡士林 (防乾燥)", false),
+                    createItem("防曬乳 (雪地反射強)", false),
+                    createItem("太陽眼鏡 (白天防雪盲)", false),
+                    createItem("個人常備藥品 (感冒藥、止痛藥)", false),
+                    createItem("舒適室內拖鞋", false),
+                ],
+            },
+            trash: [],
         };
 
-        let appTitle = "黃刀鎮極光之旅清單";
-        let appItems = {};
-        let trashItems = []; 
-        let confirmActionCallback = null; 
 
+        // --- Firebase Core Functions ---
 
-        // --- Storage Handlers ---
-
-        function loadItems() {
-            const savedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
-            // If the structure changes, you might load old data. For a new major trip, we reset.
-            if (!savedItems) {
-                console.log("Loading initial Yellowknife data.");
-                return JSON.parse(JSON.stringify(initialData)); 
+        async function initFirebase() {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is missing. Cannot initialize Firestore.");
+                document.getElementById('auth-status').textContent = '初始化失敗：缺少 Firebase 設定。';
+                return;
             }
-            return JSON.parse(savedItems);
-        }
 
-        function loadTitle() {
-            return localStorage.getItem(STORAGE_KEY_TITLE) || "黃刀鎮極光之旅清單";
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('error'); // Only log errors to console
+
+                document.getElementById('auth-status').textContent = '等待認證...';
+
+                await new Promise((resolve) => {
+                    // Sign in with custom token or anonymously
+                    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+                        unsubscribeAuth(); // Unsubscribe immediately after the first check
+
+                        if (user) {
+                            userId = user.uid;
+                        } else if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                            userId = auth.currentUser.uid;
+                        } else {
+                            // If no custom token, sign in anonymously
+                            await signInAnonymously(auth);
+                            userId = auth.currentUser.uid;
+                        }
+                        
+                        document.getElementById('auth-status').textContent = '認證成功';
+                        isAuthReady = true;
+                        resolve();
+                    });
+                });
+                
+            } catch (error) {
+                console.error("Firebase initialization or authentication failed:", error);
+                document.getElementById('auth-status').textContent = `認證錯誤: ${error.message}`;
+            }
         }
         
-        function loadColor() {
-            return localStorage.getItem(STORAGE_KEY_COLOR) || DEFAULT_COLOR;
-        }
-        
-        function loadTrash() {
-            const savedTrash = localStorage.getItem(STORAGE_KEY_TRASH);
-            return savedTrash ? JSON.parse(savedTrash) : [];
+        function getListDocRef(listId = currentListId) {
+            if (!userId) return null;
+            const path = LISTS_COLLECTION_PATH.replace('{userId}', userId);
+            const listCollection = collection(db, path);
+            return doc(listCollection, listId);
         }
 
-        function saveItems() {
-            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(appItems));
-            localStorage.setItem(STORAGE_KEY_TRASH, JSON.stringify(trashItems));
+        // --- Data Loading and Listener Setup (Simplified for Single List) ---
+        
+        async function checkAndCreateListIfEmpty() {
+            const listRef = getListDocRef();
+            const docSnap = await getDoc(listRef);
+
+            if (!docSnap.exists()) {
+                console.log("Single list not found, creating default Yellowknife list.");
+                // Ensure to create a deep copy of initialData when setting the doc
+                const dataToSave = JSON.parse(JSON.stringify(initialData));
+                await setDoc(listRef, dataToSave);
+            }
+            startCurrentListListener();
         }
         
-        function saveTitle() {
-            localStorage.setItem(STORAGE_KEY_TITLE, appTitle);
-            document.getElementById('app-title').textContent = appTitle;
+        function startCurrentListListener() {
+            if (currentListUnsubscribe) currentListUnsubscribe();
+            
+            const listRef = getListDocRef();
+            currentListUnsubscribe = onSnapshot(listRef, (docSnap) => {
+                document.getElementById('connection-status').textContent = '雲端同步中...';
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    // Update state
+                    appTitle = data.title || "極光之旅：黃刀鎮打包清單";
+                    appItems = data.items || {};
+                    trashItems = data.trash || [];
+                    categoryOrder = data.categoryOrder || Object.keys(appItems); // NEW: Load category order
+                    
+                    const newTheme = data.theme || DEFAULT_COLOR_KEY;
+                    if (newTheme !== mainColorKey) {
+                        mainColorKey = newTheme;
+                        applyTheme(); 
+                    } else {
+                        renderList(); // Render if theme is the same
+                    }
+
+                    document.getElementById('connection-status').textContent = '已同步 (OK)';
+                } else {
+                    console.error(`List ${currentListId} not found. Reverting to default.`);
+                    document.getElementById('connection-status').textContent = '清單遺失！正在重建...';
+                    // If the single document is unexpectedly deleted, re-create the default data.
+                    checkAndCreateListIfEmpty();
+                }
+            }, (error) => {
+                console.error("Error fetching current list data:", error);
+                document.getElementById('connection-status').textContent = '同步失敗！';
+            });
         }
         
-        function saveColor(key) {
-            mainColorKey = key;
-            localStorage.setItem(STORAGE_KEY_COLOR, mainColorKey);
-            applyTheme();
+        // --- CRUD & Save Handlers ---
+        
+        async function saveListState(changes = {}) {
+            if (!currentListId || !db) return;
+            
+            // Create a payload from current state + any explicit changes
+            const payload = {
+                title: appTitle,
+                theme: mainColorKey,
+                items: appItems,
+                trash: trashItems,
+                categoryOrder: categoryOrder, // NEW: Include category order
+                ...changes
+            };
+            
+            try {
+                const listRef = getListDocRef();
+                await updateDoc(listRef, payload);
+            } catch (error) {
+                console.error("Error saving list state:", error);
+            }
+        }
+        
+        // Expose to global scope for HTML event handlers
+        window.toggleCheck = async function(category, id) {
+            appItems[category] = appItems[category].map(item => 
+                item.id === id ? { ...item, checked: !item.checked } : item
+            );
+            await saveListState({ items: appItems });
+        }
+
+        // Expose to global scope for HTML event handlers
+        window.deleteItem = async function(category, id) {
+            const index = appItems[category].findIndex(item => item.id === id);
+            if (index > -1) {
+                const [deletedItem] = appItems[category].splice(index, 1);
+                deletedItem.category = category; 
+                deletedItem.deletedAt = Date.now(); // Add timestamp for trash
+                trashItems.push(deletedItem);
+                
+                // If category is now empty, delete it from the object and order
+                if (appItems[category].length === 0) {
+                    delete appItems[category];
+                    categoryOrder = categoryOrder.filter(c => c !== category);
+                }
+
+                await saveListState({ items: appItems, trash: trashItems, categoryOrder: categoryOrder });
+            }
+        }
+        
+        // Expose to global scope for HTML event handlers
+        window.restoreItem = async function(id) {
+            const index = trashItems.findIndex(item => item.id === id);
+            if (index > -1) {
+                const [restoredItem] = trashItems.splice(index, 1);
+                const category = restoredItem.category || "額外選配/其他";
+                
+                if (!appItems[category]) {
+                    appItems[category] = [];
+                    categoryOrder.push(category); // Add restored category to the end of the order
+                }
+                
+                appItems[category].push({ 
+                    id: restoredItem.id, 
+                    text: restoredItem.text, 
+                    checked: restoredItem.checked 
+                });
+                
+                await saveListState({ items: appItems, trash: trashItems, categoryOrder: categoryOrder });
+                renderTrashModal(); 
+            }
+        }
+
+        // Expose to global scope for HTML event handlers
+        window.handleAddItem = async function(category) {
+            const input = document.getElementById(`new-item-input-${category}`);
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Use Date.now() for unique item ID
+            const newItem = {
+                id: Date.now(),
+                text: text,
+                checked: false
+            };
+
+            if (!appItems[category]) {
+                appItems[category] = [];
+            }
+
+            appItems[category].push(newItem);
+            input.value = '';
+            // Ensure focus is kept after adding
+            input.focus(); 
+            await saveListState({ items: appItems });
+        }
+        
+        async function handleAddCategory() {
+            const input = document.getElementById('category-input');
+            const newCategoryName = input.value.trim();
+            
+            if (!newCategoryName) return;
+            if (appItems.hasOwnProperty(newCategoryName)) {
+                // Use custom modal instead of alert
+                const modal = document.getElementById('category-modal');
+                modal.close();
+                
+                const errorModal = document.getElementById('confirm-modal');
+                document.getElementById('confirm-modal-title').innerHTML = `<i data-lucide="info" class="lucide w-5 h-5 text-blue-600"></i> 分類名稱重複`;
+                document.getElementById('confirm-modal-message').textContent = "該分類名稱已存在，請使用其他名稱。";
+                
+                const actionButton = document.getElementById('confirm-modal-action');
+                actionButton.textContent = "確定";
+                actionButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+                actionButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                document.getElementById('confirm-modal-cancel').style.display = 'none'; // Hide cancel
+                
+                confirmActionCallback = () => {
+                     errorModal.close();
+                     // Restore button state
+                     actionButton.textContent = "確認並繼續";
+                     actionButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                     actionButton.classList.add('bg-red-600', 'hover:bg-red-700');
+                     document.getElementById('confirm-modal-cancel').style.display = 'inline-flex'; // Show cancel
+                };
+                lucide.createIcons();
+                errorModal.showModal();
+                return;
+            }
+            
+            appItems[newCategoryName] = [];
+            categoryOrder.push(newCategoryName); // NEW: Add new category to the end of the order
+            
+            input.value = '';
+            document.getElementById('category-modal').close();
+            await saveListState({ items: appItems, categoryOrder: categoryOrder }); // Save new order
+        }
+        
+        // NEW FUNCTION: Toggle filter state
+        window.toggleFilter = function() {
+            showAllItems = !showAllItems;
+            updateFilterButtonUI();
+            // Re-render the list to apply filtering CSS classes without a full re-render
+            filterListDisplay(); 
+        }
+
+        // FIX: Added robust element checks and fixed icon manipulation logic
+        function updateFilterButtonUI() {
+            const button = document.getElementById('filter-button');
+            const textSpan = document.getElementById('filter-text');
+            
+            if (!button || !textSpan) {
+                // console.warn("Filter button or text element not found. Skipping filter UI update.");
+                return;
+            }
+
+            // FIX: Find the icon element using its class, as it might be an SVG after Lucide runs.
+            const icon = button.querySelector('.lucide'); 
+            
+            if (!icon) {
+                 // Fallback: just update the text
+                 textSpan.textContent = showAllItems ? "顯示全部" : "未打包項";
+                 return;
+            }
+
+            // FIX: Change the data-lucide attribute instead of setting innerHTML to fix TypeError
+            if (showAllItems) {
+                textSpan.textContent = "顯示全部";
+                icon.setAttribute('data-lucide', 'eye');
+            } else {
+                textSpan.textContent = "未打包項";
+                icon.setAttribute('data-lucide', 'eye-off');
+            }
+            
+            // Re-create icons to apply the change (since attribute changed)
+            lucide.createIcons(); 
+        }
+
+        function filterListDisplay() {
+            const listContainer = document.getElementById('list-container');
+            if (!listContainer) return;
+
+            const allItems = listContainer.querySelectorAll('.item-container');
+            
+            allItems.forEach(itemContainer => {
+                const isChecked = itemContainer.dataset.checked === 'true';
+                if (!showAllItems && isChecked) {
+                    itemContainer.classList.add('item-hidden');
+                } else {
+                    itemContainer.classList.remove('item-hidden');
+                }
+            });
+            
+            // Also, hide empty categories if filtering to only unchecked items
+            listContainer.querySelectorAll('.category-block').forEach(categoryBlock => {
+                const visibleItems = categoryBlock.querySelectorAll('.item-container:not(.item-hidden)');
+                const emptyMessage = categoryBlock.querySelector('.category-empty-message');
+                
+                if (visibleItems.length === 0) {
+                    // Check if all items in category are checked AND filter is on
+                    const allItemsInBlock = categoryBlock.querySelectorAll('.item-container');
+                    const allChecked = Array.from(allItemsInBlock).every(item => item.dataset.checked === 'true');
+
+                    if (!showAllItems && allChecked && allItemsInBlock.length > 0) {
+                         categoryBlock.classList.add('item-hidden'); // Hide if filtered and all done
+                    } else if (allItemsInBlock.length === 0) {
+                         // Hide if genuinely empty, regardless of filter
+                         categoryBlock.classList.remove('item-hidden'); 
+                    } else {
+                        categoryBlock.classList.remove('item-hidden');
+                    }
+                } else {
+                    categoryBlock.classList.remove('item-hidden');
+                }
+
+                // Show the "empty" message if no items are left for this category
+                if (emptyMessage) {
+                     // Show the message only if the list is genuinely empty (filter off)
+                     if (visibleItems.length === 0 && showAllItems && categoryBlock.querySelectorAll('.item-container').length === 0) {
+                         emptyMessage.classList.remove('item-hidden');
+                     } else {
+                          emptyMessage.classList.add('item-hidden');
+                     }
+                }
+            });
         }
 
 
-        // --- UI Logic ---
+        // --- UI & Rendering ---
         
         function applyTheme() {
             const theme = COLOR_THEMES[mainColorKey];
@@ -358,10 +777,13 @@
             let total = 0;
             let checked = 0;
             Object.values(appItems).forEach(categoryItems => {
-                categoryItems.forEach(item => {
-                    total++;
-                    if (item.checked) checked++;
-                });
+                // Check if categoryItems is actually an array
+                if (Array.isArray(categoryItems)) {
+                    categoryItems.forEach(item => {
+                        total++;
+                        if (item.checked) checked++;
+                    });
+                }
             });
             const progress = total === 0 ? 0 : Math.round((checked / total) * 100);
             return { total, checked, progress };
@@ -371,69 +793,122 @@
             const { checked, total, progress } = calculateProgress();
             const progressBar = document.getElementById('progress-bar');
             const progressMessage = document.getElementById('progress-message');
-            const trashCount = document.getElementById('trash-count');
+            const trashCountMenu = document.getElementById('trash-count-menu'); // NEW: Menu trash count
 
-            progressBar.style.width = `${progress}%`;
+            if (progressBar) {
+                progressBar.style.width = `${progress}%`;
+                
+                const progressBarText = progress > 5 ? `${progress}%` : '';
+                if (progressBar.textContent !== progressBarText) {
+                    progressBar.textContent = progressBarText;
+                }
+            }
             
-            const progressBarText = progress > 5 ? `${progress}%` : '';
-            if (progressBar.textContent !== progressBarText) {
-                progressBar.textContent = progressBarText;
+            // NEW: Update trash count in the menu
+            if (trashCountMenu) {
+                trashCountMenu.textContent = trashItems.length > 99 ? '99+' : trashItems.length;
             }
 
-            trashCount.textContent = trashItems.length > 99 ? '99+' : trashItems.length;
-            trashCount.style.display = trashItems.length > 0 ? 'flex' : 'none';
-
-            if (total > 0 && progress === 100) {
-                progressMessage.textContent = "極地裝備就緒！祝極光捕獲成功！🌌";
-            } else {
-                progressMessage.textContent = "繼續加油！";
+            if (progressMessage) {
+                 if (total > 0 && progress === 100) {
+                     progressMessage.textContent = "已完成！極光女神等著您！✨";
+                 } else {
+                     progressMessage.textContent = `已完成 ${checked}/${total} 項。`;
+                 }
             }
         }
         
-        function toggleNavMenu() {
+        // Expose to global scope for HTML event handlers
+        window.toggleNavMenu = function() {
             const menu = document.getElementById('nav-menu');
             const backdrop = document.getElementById('nav-menu-backdrop');
+            if (!menu || !backdrop) return;
+            
             const isOpen = menu.classList.toggle('open');
             backdrop.classList.toggle('open', isOpen);
             document.body.style.overflow = isOpen ? 'hidden' : ''; 
+            
+            // Update the UI on open (in case new categories were added)
+            if (isOpen) renderNavMenu();
         }
 
-        function scrollToCategory(id) {
+        // Expose to global scope for HTML event handlers
+        window.scrollToCategory = function(id) {
             const element = document.getElementById(id);
-            if (element) {
-                const headerHeight = document.getElementById('main-header').offsetHeight;
+            const header = document.getElementById('main-header');
+            if (element && header) {
+                const headerHeight = header.offsetHeight;
                 const offsetTop = element.offsetTop - headerHeight - 16; 
                 window.scrollTo({ top: offsetTop, behavior: 'smooth' });
                 toggleNavMenu(); 
             }
         }
+        
+        function renderNavMenu() {
+            const navLinksContainer = document.getElementById('nav-links');
+            if (!navLinksContainer) return;
+            
+            // Use the current category order for nav menu links
+            let categories = categoryOrder.filter(c => appItems.hasOwnProperty(c));
+            
+            navLinksContainer.innerHTML = categories.map(category => `
+                <li>
+                    <a href="javascript:void(0)" onclick="window.scrollToCategory('category-${category.replace(/\s/g, '-')}')"
+                       class="block px-3 py-2 text-slate-700 hover:bg-theme-50 rounded-lg transition-colors">
+                        ${category}
+                    </a>
+                </li>
+            `).join('');
+            lucide.createIcons();
+            updateProgressDisplay(); // Update trash count in menu
+        }
 
-        // --- Modals (Title, Color, Confirm) ---
 
-        function editTitle() {
+        // --- Modals (Title, Color, Category, Confirm, Trash, Category Sort) ---
+        
+        // Expose to global scope for HTML event handlers
+        window.editTitle = function() {
             const titleModal = document.getElementById('title-modal');
             const titleInput = document.getElementById('title-input');
+            if (!titleModal || !titleInput) return;
             
             titleInput.value = appTitle;
             titleModal.showModal();
             titleInput.focus();
         }
         
-        function saveTitleEdit() {
+        async function saveTitleEdit() {
             const titleInput = document.getElementById('title-input');
+            const appTitleSpan = document.getElementById('app-title');
+            if (!titleInput || !appTitleSpan) return;
+
             const newTitle = titleInput.value.trim();
             
             if (newTitle !== "" && newTitle !== appTitle) {
                 appTitle = newTitle;
-                saveTitle();
+                appTitleSpan.textContent = appTitle; // Immediate UI update
+                await saveListState({ title: appTitle });
             }
             
             document.getElementById('title-modal').close();
         }
 
-        function renderColorModal() {
+        async function saveColorAndClose(key) {
+            if (key === mainColorKey) {
+                document.getElementById('color-modal').close();
+                return;
+            }
+            mainColorKey = key;
+            applyTheme();
+            await saveListState({ theme: mainColorKey });
+            document.getElementById('color-modal').close();
+        }
+
+        // Expose to global scope for HTML event handlers
+        window.renderColorModal = function() {
             const modal = document.getElementById('color-modal');
             const palette = document.getElementById('color-palette');
+            if (!modal || !palette) return;
 
             palette.innerHTML = Object.keys(COLOR_THEMES).map(key => {
                 const theme = COLOR_THEMES[key];
@@ -447,7 +922,7 @@
                             class="color-option w-10 h-10 rounded-full shadow-md transition-transform transform hover:scale-110 ${borderClass}" 
                             style="background-color: rgb(${rgb})" 
                             data-color-key="${key}"
-                            aria-label="${theme.name}"
+                            title="${theme.name}"
                         ></button>
                         <span class="text-xs mt-1 text-slate-600">${theme.name}</span>
                     </div>
@@ -455,43 +930,66 @@
             }).join('');
             
             palette.querySelectorAll('.color-option').forEach(btn => {
-                btn.onclick = () => {
-                    saveColor(btn.dataset.colorKey);
-                    modal.close();
-                };
+                btn.onclick = () => saveColorAndClose(btn.dataset.colorKey);
             });
 
             modal.showModal();
         }
         
+        // Expose to global scope for HTML event handlers
+        window.renderCategoryModal = function() {
+            const modal = document.getElementById('category-modal');
+            const input = document.getElementById('category-input');
+            if (!modal || !input) return;
+
+            input.value = '';
+            modal.showModal();
+            input.focus();
+        }
+        
         function showConfirm(title, message, callback) {
             const modal = document.getElementById('confirm-modal');
-            // Update modal title and icon color (using red for confirmation warnings)
-            document.getElementById('confirm-modal-title').innerHTML = `<i data-lucide="alert-triangle" class="lucide w-5 h-5 text-red-600"></i> ${title}`;
-            document.getElementById('confirm-modal-message').textContent = message;
+            const actionButton = document.getElementById('confirm-modal-action');
+            const titleElement = document.getElementById('confirm-modal-title');
+            const messageElement = document.getElementById('confirm-modal-message');
+            const cancelButton = document.getElementById('confirm-modal-cancel');
+
+            if (!modal || !actionButton || !titleElement || !messageElement || !cancelButton) return;
+            
+            // Reset button to default action style first
+            actionButton.textContent = "確認並繼續";
+            actionButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            actionButton.classList.add('bg-red-600', 'hover:bg-red-700');
+            cancelButton.style.display = 'inline-flex';
+
+            titleElement.innerHTML = `<i data-lucide="alert-triangle" class="lucide w-5 h-5 text-red-600"></i> ${title}`;
+            messageElement.textContent = message;
             confirmActionCallback = callback;
             lucide.createIcons();
             modal.showModal();
         }
 
-        function triggerResetList() {
+        window.triggerResetList = function() {
             showConfirm(
                 "重置清單警告",
-                "確定要【完全重置】所有清單、刪除新增項目，並清空回收站嗎？此操作無法還原！",
+                "確定要【重置當前清單】的內容、刪除所有新增項目，並清空回收站嗎？此操作無法還原！",
                 resetListLogic
             );
         }
 
-        function resetListLogic() {
-            appItems = JSON.parse(JSON.stringify(initialData)); 
-            trashItems = [];
-            appTitle = "黃刀鎮極光之旅清單";
-            mainColorKey = DEFAULT_COLOR;
-            localStorage.clear(); 
-            saveTitle(); 
-            saveColor(DEFAULT_COLOR); // Save default color and apply theme
-            saveItems();
-            renderList();
+        async function resetListLogic() {
+            // Ensure a deep copy of the full initial data
+            const initialDataCopy = JSON.parse(JSON.stringify(initialData));
+
+            appItems = initialDataCopy.items;
+            trashItems = initialDataCopy.trash;
+            appTitle = initialDataCopy.title;
+            mainColorKey = initialDataCopy.theme;
+            categoryOrder = initialDataCopy.categoryOrder;
+            
+            await setDoc(getListDocRef(), initialDataCopy);
+
+            // Theme change is handled via setDoc listener
             document.getElementById('confirm-modal').close();
         }
 
@@ -503,137 +1001,214 @@
             );
         }
 
-        function emptyTrashLogic() {
+        async function emptyTrashLogic() {
             trashItems = [];
-            saveItems();
+            await saveListState({ trash: trashItems });
             renderTrashModal();
             updateProgressDisplay();
             document.getElementById('confirm-modal').close();
         }
-
-
-        // --- Item CRUD Handlers ---
-
-        function toggleCheck(category, id) {
-            appItems[category] = appItems[category].map(item => 
-                item.id === id ? { ...item, checked: !item.checked } : item
-            );
-            saveItems();
-            renderList();
-        }
-
-        function deleteItem(category, id) {
-            const index = appItems[category].findIndex(item => item.id === id);
-            if (index > -1) {
-                const [deletedItem] = appItems[category].splice(index, 1);
-                deletedItem.category = category; 
-                trashItems.push(deletedItem);
-                
-                // Only delete the category if it's NOT one of the initial categories
-                if (appItems[category].length === 0 && !Object.keys(initialData).includes(category)) {
-                    delete appItems[category];
-                }
-
-                saveItems();
-                renderList();
-            }
-        }
         
-        function restoreItem(id) {
-            const index = trashItems.findIndex(item => item.id === id);
-            if (index > -1) {
-                const [restoredItem] = trashItems.splice(index, 1);
-                const category = restoredItem.category || "額外 OPTIONAL";
-                
-                if (!appItems[category]) {
-                    appItems[category] = [];
-                }
-                
-                appItems[category].push({ 
-                    id: restoredItem.id, 
-                    text: restoredItem.text, 
-                    checked: restoredItem.checked 
-                });
-                
-                saveItems();
-                renderList();
-                renderTrashModal(); 
-            }
+        // Expose to global scope for HTML event handlers
+        window.openTrashModal = function() {
+            window.renderTrashModal(); 
+            document.getElementById('trash-modal').showModal();
         }
 
-        function handleAddItem(category) {
-            const input = document.getElementById(`new-item-input-${category}`);
-            const text = input.value.trim();
-            if (!text) return;
-
-            const newItem = {
-                id: Date.now(),
-                text: text,
-                checked: false
-            };
-
-            if (!appItems[category]) {
-                appItems[category] = [];
-            }
-
-            appItems[category].push(newItem);
-            input.value = '';
-            saveItems();
-            renderList();
-        }
-        
-        // --- Rendering ---
-        
-        function renderNavMenu() {
-            const navLinksContainer = document.getElementById('nav-links');
-            const categories = Object.keys(appItems);
+        // Expose to global scope for HTML event handlers
+        window.renderTrashModal = function() {
+            const modal = document.getElementById('trash-modal');
+            const contentDiv = document.getElementById('trash-content');
+            const emptyButton = document.getElementById('empty-trash-button');
+            if (!modal || !contentDiv || !emptyButton) return;
             
-            navLinksContainer.innerHTML = categories.map(category => `
-                <li>
-                    <a href="javascript:void(0)" onclick="scrollToCategory('category-${category.replace(/\s/g, '-')}')"
-                       class="block px-3 py-2 text-slate-700 hover:bg-theme-50 rounded-lg transition-colors">
-                        ${category}
-                    </a>
-                </li>
-            `).join('');
+            // Sort trash items by deletedAt time descending (most recent first)
+            const sortedTrash = trashItems.sort((a, b) => b.deletedAt - a.deletedAt);
+
+            if (sortedTrash.length === 0) {
+                contentDiv.innerHTML = '<p class="text-center text-slate-500 py-6">回收站是空的。</p>';
+                emptyButton.disabled = true;
+                emptyButton.classList.add('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+            
+            emptyButton.disabled = false;
+            emptyButton.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            contentDiv.innerHTML = sortedTrash.map(item => {
+                const deleteDate = item.deletedAt ? new Date(item.deletedAt).toLocaleDateString('zh-Hant', { month: 'short', day: 'numeric' }) : '未知日期';
+                return `
+                    <div class="flex justify-between items-center bg-slate-100 p-3 rounded-lg border border-slate-200">
+                        <div class="text-sm">
+                            <p class="font-semibold text-slate-700">${item.text}</p>
+                            <p class="text-xs text-slate-500">
+                                分類: ${item.category || '已刪除'} 
+                                <span class="ml-2 text-slate-400">(${deleteDate} 刪除)</span>
+                            </p>
+                        </div>
+                        <button class="restore-button bg-theme text-white p-2 rounded-lg hover:bg-theme-800 transition-colors"
+                            onclick="window.restoreItem(${item.id})" title="還原項目">
+                            <i data-lucide="undo-2" class="lucide w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            
+            lucide.createIcons();
         }
+        
+        // --- Category Sorting Logic ---
+        
+        // Expose to global scope for HTML event handlers
+        window.renderCategorySortModal = function() {
+            const modal = document.getElementById('category-sort-modal');
+            const contentDiv = document.getElementById('category-sort-list');
+            if (!modal || !contentDiv) return;
+
+            // Get categories that actually exist in appItems, based on categoryOrder
+            let categories = categoryOrder.filter(c => appItems.hasOwnProperty(c));
+             const existingCategories = Object.keys(appItems);
+            existingCategories.forEach(cat => {
+                if (!categories.includes(cat)) {
+                    categories.push(cat); // Add new categories to the end for display
+                }
+            });
+
+            if (categories.length === 0) {
+                 contentDiv.innerHTML = '<p class="text-center text-slate-500 py-6">目前沒有分類可以排序。</p>';
+            } else {
+                contentDiv.innerHTML = categories
+                    .map(category => `
+                        <div class="category-item flex items-center p-3 border border-slate-300 rounded-lg bg-white shadow-sm cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing"
+                            draggable="true" data-category="${category}">
+                            <i data-lucide="grip-vertical" class="lucide w-5 h-5 text-slate-400 mr-3"></i>
+                            <span class="font-semibold text-slate-700">${category}</span>
+                        </div>
+                    `).join('');
+                
+                attachDragDropListeners(contentDiv);
+            }
+            lucide.createIcons();
+            modal.showModal();
+        }
+        
+        function attachDragDropListeners(container) {
+            const categoryItems = container.querySelectorAll('.category-item');
+            
+            categoryItems.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('dragleave', handleDragLeave);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+        }
+        
+        let draggedItem = null;
+
+        function handleDragStart(e) {
+            draggedItem = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.category);
+            setTimeout(() => this.classList.add('dragging'), 0);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (this !== draggedItem) {
+                 // Subtle visual hint for drop zone
+                 this.style.borderTop = `2px solid rgb(var(--color-main-600))`;
+            }
+        }
+        
+        function handleDragLeave() {
+            this.style.borderTop = '';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.style.borderTop = '';
+
+            if (draggedItem && this !== draggedItem) {
+                const container = document.getElementById('category-sort-list');
+                if (!container) return;
+
+                const items = Array.from(container.querySelectorAll('.category-item'));
+                const draggedIndex = items.indexOf(draggedItem);
+                const targetIndex = items.indexOf(this);
+                
+                // Reorder the DOM elements
+                if (draggedIndex < targetIndex) {
+                    container.insertBefore(draggedItem, this.nextSibling);
+                } else {
+                    container.insertBefore(draggedItem, this);
+                }
+            }
+        }
+        
+        async function handleDragEnd() {
+            this.classList.remove('dragging');
+            draggedItem = null;
+            
+            const container = document.getElementById('category-sort-list');
+            if (!container) return;
+
+            // Get the new order from the DOM
+            const newOrder = Array.from(container.querySelectorAll('.category-item'))
+                                .map(item => item.dataset.category);
+            
+            // Save the new order to state and Firestore
+            if (JSON.stringify(categoryOrder) !== JSON.stringify(newOrder)) {
+                categoryOrder = newOrder;
+                await saveListState({ categoryOrder: categoryOrder });
+            }
+            
+            // Re-render the main list with the new order
+            renderList();
+        }
+
 
         function renderCategory(category, items) {
             const finishedCount = items.filter(i => i.checked).length;
             const totalCount = items.length;
             const isComplete = totalCount > 0 && finishedCount === totalCount;
-            // Use bg-theme-50 for completed categories
-            const bgColor = isComplete ? 'bg-theme-50' : 'bg-slate-50'; 
+            const bgColor = isComplete ? 'bg-theme-50' : 'bg-white'; 
             const categoryId = `category-${category.replace(/\s/g, '-')}`;
             
-            // Icon for important category
-            const importantIcon = category === "無敵重要物品" ? '<span class="text-red-500">!!!!</span>' : '';
-            // Icon for cold category
-            const coldIcon = category === "極地保暖裝備" ? '<i data-lucide="snowflake" class="lucide w-5 h-5 text-blue-500"></i>' : '';
+            // Icon customization based on Yellowknife theme
+            let headerIcon = '<i data-lucide="folder" class="lucide w-5 h-5 text-slate-500"></i>';
+            if (category.includes("重要文件")) headerIcon = '<i data-lucide="file-text" class="lucide w-5 h-5 text-red-500"></i>';
+            if (category.includes("禦寒衣物")) headerIcon = '<i data-lucide="thermometer" class="lucide w-5 h-5 text-sky-500"></i>';
+            if (category.includes("攝影器材")) headerIcon = '<i data-lucide="camera" class="lucide w-5 h-5 text-yellow-500"></i>';
+            if (category.includes("保暖配件")) headerIcon = '<i data-lucide="shovel" class="lucide w-5 h-5 text-purple-500"></i>';
+            if (category.includes("個人用品")) headerIcon = '<i data-lucide="user" class="lucide w-5 h-5 text-green-500"></i>';
+
 
             // Item list HTML
             const itemsHtml = items.map(item => `
-                <div class="group flex items-center p-3 hover:bg-slate-50 transition-colors ${item.checked ? 'bg-slate-50/50' : ''}">
+                <div class="item-container flex items-center p-3 hover:bg-slate-50 transition-colors ${item.checked ? 'bg-slate-50/50' : ''}"
+                    data-checked="${item.checked}" data-category="${category}" data-id="${item.id}">
+                    
                     <!-- Check Button -->
                     <button type="button" class="check-button flex-shrink-0 w-6 h-6 rounded-md border-2 mr-3 flex items-center justify-center transition-all ${
                         item.checked 
-                            ? 'checked text-white' // The 'checked' class applies dynamic color via CSS var
-                            : 'border-slate-300 text-transparent hover:border-theme-300' // Use theme 300 for hover border
-                    }" data-category="${category}" data-id="${item.id}" aria-label="勾選項目">
+                            ? 'checked text-white' 
+                            : 'border-slate-300 text-transparent hover:border-theme-300'
+                    }" aria-label="勾選項目">
                         <i data-lucide="check" class="lucide w-4 h-4" stroke-width="3"></i>
                     </button>
                     
                     <!-- Text (Clickable to toggle check) -->
                     <span 
                         class="flex-grow cursor-pointer select-none text-sm transition-all ${item.checked ? 'text-slate-400 line-through' : 'text-slate-700'}"
-                        data-category="${category}" data-id="${item.id}"
                     >
                         ${item.text}
                     </span>
                     
                     <!-- Delete Button -->
                     <button type="button" class="delete-button flex-shrink-0 text-slate-300 hover:text-red-500 p-2 transition-colors active:scale-95 cursor-pointer"
-                        data-category="${category}" data-id="${item.id}" aria-label="刪除項目">
+                        aria-label="刪除項目">
                         <i data-lucide="trash-2" class="lucide w-4 h-4"></i>
                     </button>
                 </div>
@@ -641,12 +1216,11 @@
 
             // Category block HTML
             return `
-                <div id="${categoryId}" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div id="${categoryId}" class="category-block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <!-- Category Header -->
                     <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center ${bgColor}">
                         <h2 class="font-bold text-slate-700 flex items-center gap-2 text-lg">
-                            ${importantIcon}
-                            ${coldIcon}
+                            ${headerIcon}
                             ${category}
                         </h2>
                         <span class="text-xs px-2 py-1 rounded-full ${isComplete ? 'bg-theme-100 text-theme-900' : 'bg-slate-200 text-slate-600'}">
@@ -655,8 +1229,9 @@
                     </div>
 
                     <!-- Items List -->
-                    <div class="divide-y divide-slate-100">
+                    <div class="item-list-container divide-y divide-slate-100">
                         ${itemsHtml}
+                        <p class="category-empty-message text-center text-slate-400 text-sm py-4 ${totalCount > 0 ? 'item-hidden' : ''}">此分類目前沒有項目。</p>
                     </div>
 
                     <!-- Add Item Input -->
@@ -667,11 +1242,11 @@
                                 id="new-item-input-${category}"
                                 placeholder="新增${category}項目..."
                                 class="w-full pl-3 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-theme-500 focus:border-transparent transition-shadow"
-                                onkeydown="if(event.key === 'Enter') { handleAddItem('${category}'); }"
+                                onkeydown="if(event.key === 'Enter') { window.handleAddItem('${category}'); }"
                             />
                             <button
                                 type="button"
-                                onclick="handleAddItem('${category}')"
+                                onclick="window.handleAddItem('${category}')"
                                 class="absolute right-1 top-1 p-1.5 bg-theme text-white rounded-md hover:bg-theme-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
                             >
                                 <i data-lucide="plus" class="lucide w-4 h-4"></i>
@@ -682,56 +1257,50 @@
             `;
         }
         
-        function renderTrashModal() {
-            const modal = document.getElementById('trash-modal');
-            const contentDiv = document.getElementById('trash-content');
-            
-            if (trashItems.length === 0) {
-                contentDiv.innerHTML = '<p class="text-center text-slate-500 py-6">回收站是空的。</p>';
-                document.getElementById('empty-trash-button').disabled = true;
-                document.getElementById('empty-trash-button').classList.add('opacity-50', 'cursor-not-allowed');
+        function renderList() {
+            const listIdSpan = document.getElementById('list-id');
+            const userIdSpan = document.getElementById('user-id');
+            const appTitleSpan = document.getElementById('app-title');
+
+            if (!currentListId || !listIdSpan || !userIdSpan || !appTitleSpan) {
+                // Not ready to render if core elements are missing
                 return;
             }
             
-            document.getElementById('empty-trash-button').disabled = false;
-            document.getElementById('empty-trash-button').classList.remove('opacity-50', 'cursor-not-allowed');
-
-            contentDiv.innerHTML = trashItems.map(item => `
-                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-lg border border-slate-200">
-                    <div class="text-sm">
-                        <p class="font-semibold text-slate-700">${item.text}</p>
-                        <p class="text-xs text-slate-500">分類: ${item.category || '已刪除'}</p>
-                    </div>
-                    <button class="restore-button bg-theme text-white p-2 rounded-lg hover:bg-theme-800 transition-colors"
-                        data-id="${item.id}" title="還原項目">
-                        <i data-lucide="undo-2" class="lucide w-4 h-4"></i>
-                    </button>
-                </div>
-            `).join('');
-            
-            lucide.createIcons();
-            
-            contentDiv.querySelectorAll('.restore-button').forEach(btn => {
-                btn.onclick = (e) => {
-                    e.stopPropagation();
-                    const id = parseInt(btn.dataset.id);
-                    restoreItem(id);
-                };
-            });
-        }
-        
-
-        function renderList() {
             const container = document.getElementById('list-container');
-            container.innerHTML = Object.entries(appItems).map(([category, items]) => {
-                return renderCategory(category, items);
+            if (!container) return; // Should not happen, but defensive check
+            
+            // Get categories that actually exist in appItems, based on categoryOrder
+            let categories = categoryOrder.filter(c => appItems.hasOwnProperty(c));
+
+            // Add any new categories that are not in the custom order yet (e.g., new additions)
+            const existingCategories = Object.keys(appItems);
+            let needsSave = false;
+            existingCategories.forEach(cat => {
+                if (!categories.includes(cat)) {
+                    categories.push(cat); // Add new categories to the end
+                    needsSave = true;
+                }
+            });
+            
+            // Update categoryOrder state and save if new categories were added
+            if (needsSave || categoryOrder.length !== categories.length) {
+                categoryOrder = categories;
+                saveListState({ categoryOrder: categoryOrder });
+            }
+
+            container.innerHTML = categories.map(category => {
+                return renderCategory(category, appItems[category] || []);
             }).join('');
             
-            document.getElementById('app-title').textContent = appTitle;
+            appTitleSpan.textContent = appTitle;
+            listIdSpan.textContent = currentListId;
+            userIdSpan.textContent = userId;
             
-            // Re-render icons after adding new content, and apply theme colors to new buttons
             lucide.createIcons(); 
             updateProgressDisplay();
+            updateFilterButtonUI(); // Update filter UI state
+            filterListDisplay(); // Apply current filter state after rendering
             renderNavMenu(); 
             attachEventListeners();
         }
@@ -739,94 +1308,127 @@
         function attachEventListeners() {
             const listContainer = document.getElementById('list-container');
             
-            // Clear old listeners before attaching new ones (important for re-render)
-            document.querySelectorAll('.check-button, .delete-button, .flex-grow').forEach(el => {
-                el.onclick = null;
-            });
-            document.getElementById('reset-button').onclick = null;
-            document.getElementById('trash-button').onclick = null;
-            document.getElementById('close-trash-modal-button').onclick = null;
-            document.getElementById('empty-trash-button').onclick = null;
-            document.getElementById('color-picker-button').onclick = null;
-            document.getElementById('close-color-modal').onclick = null;
-            document.getElementById('save-title-edit').onclick = null;
-            document.getElementById('cancel-title-edit').onclick = null;
-            document.getElementById('confirm-modal-cancel').onclick = null;
-            document.getElementById('confirm-modal-action').onclick = null;
+            // Re-attach item interaction listeners (since content is re-rendered)
+            listContainer.querySelectorAll('.item-container').forEach(itemDiv => {
+                const category = itemDiv.dataset.category;
+                const id = parseInt(itemDiv.dataset.id);
 
-
-            // Item clicks (check, delete)
-            listContainer.querySelectorAll('.check-button, .delete-button, .flex-grow').forEach(el => {
-                el.onclick = (e) => {
-                    const category = el.dataset.category;
-                    const id = parseInt(el.dataset.id);
-                    
-                    if (el.classList.contains('delete-button')) {
+                // Check button
+                const checkButton = itemDiv.querySelector('.check-button');
+                if (checkButton) {
+                    checkButton.onclick = (e) => {
                         e.stopPropagation();
-                        deleteItem(category, id);
-                    } else {
-                        e.stopPropagation();
-                        toggleCheck(category, id);
-                    }
-                };
-            });
+                        window.toggleCheck(category, id);
+                    };
+                }
 
-            // --- Global Button Listeners ---
-            document.getElementById('reset-button').onclick = triggerResetList; 
+                // Text (clickable to toggle check)
+                const textSpan = itemDiv.querySelector('span:not(.text-slate-500)');
+                if (textSpan) {
+                     textSpan.onclick = (e) => {
+                        e.stopPropagation();
+                        window.toggleCheck(category, id);
+                    };
+                }
+                
+                // Delete button
+                const deleteButton = itemDiv.querySelector('.delete-button');
+                if (deleteButton) {
+                    deleteButton.onclick = (e) => {
+                        e.stopPropagation();
+                        window.deleteItem(category, id);
+                    };
+                }
+            });
             
-            // Color Modal
-            document.getElementById('color-picker-button').onclick = renderColorModal;
-            document.getElementById('close-color-modal').onclick = () => {
-                document.getElementById('color-modal').close();
-            };
+            // --- Global Button Listeners (Ensure they are attached only once or updated) ---
+            document.getElementById('filter-button').onclick = window.toggleFilter; 
+            document.getElementById('color-picker-button').onclick = window.renderColorModal;
+            
+            // NEW: Attach reset and trash listeners to the MENU buttons
+            // document.getElementById('reset-button-menu').onclick is already set in HTML
+            // document.getElementById('trash-button-menu').onclick is already set in HTML to openTrashModal()
+
+
+            const closeColorModal = document.getElementById('close-color-modal');
+            if (closeColorModal) closeColorModal.onclick = () => document.getElementById('color-modal').close();
 
             // Trash Modal buttons
-            document.getElementById('trash-button').onclick = () => {
-                renderTrashModal(); 
-                document.getElementById('trash-modal').showModal();
-            };
-            document.getElementById('close-trash-modal-button').onclick = () => {
-                document.getElementById('trash-modal').close();
-            };
-            document.getElementById('empty-trash-button').onclick = triggerEmptyTrash; 
+            // trashButton (in header) is now removed.
+            const closeTrashModalButton = document.getElementById('close-trash-modal-button');
+            if (closeTrashModalButton) closeTrashModalButton.onclick = () => document.getElementById('trash-modal').close();
+            const emptyTrashButton = document.getElementById('empty-trash-button');
+            if (emptyTrashButton) emptyTrashButton.onclick = triggerEmptyTrash; 
 
-            // --- Title Modal listeners ---
-            document.getElementById('save-title-edit').onclick = saveTitleEdit;
-            document.getElementById('cancel-title-edit').onclick = () => {
-                document.getElementById('title-modal').close();
-            };
-            document.getElementById('title-input').addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault(); 
-                    saveTitleEdit();
-                }
-            });
+            // Title Modal
+            const saveTitleEditBtn = document.getElementById('save-title-edit');
+            if (saveTitleEditBtn) saveTitleEditBtn.onclick = saveTitleEdit;
+            const cancelTitleEditBtn = document.getElementById('cancel-title-edit');
+            if (cancelTitleEditBtn) cancelTitleEditBtn.onclick = () => document.getElementById('title-modal').close();
+            
+            // Category Modal
+            const saveCategoryBtn = document.getElementById('save-category');
+            if (saveCategoryBtn) saveCategoryBtn.onclick = handleAddCategory;
+            const cancelCategoryBtn = document.getElementById('cancel-category');
+            if (cancelCategoryBtn) cancelCategoryBtn.onclick = () => document.getElementById('category-modal').close();
+            
+            const categoryInput = document.getElementById('category-input');
+            if (categoryInput) {
+                categoryInput.onkeydown = (event) => {
+                     if (event.key === 'Enter') {
+                        event.preventDefault(); 
+                        handleAddCategory();
+                    }
+                };
+            }
 
-            // --- Confirmation Modal listeners ---
-            document.getElementById('confirm-modal-cancel').onclick = () => {
-                document.getElementById('confirm-modal').close();
-                confirmActionCallback = null; 
-            };
-            document.getElementById('confirm-modal-action').onclick = () => {
-                if (confirmActionCallback) {
-                    confirmActionCallback(); 
-                }
-            };
-
+            // Confirmation Modal
+            const confirmModalCancel = document.getElementById('confirm-modal-cancel');
+            if (confirmModalCancel) {
+                confirmModalCancel.onclick = () => {
+                    document.getElementById('confirm-modal').close();
+                    confirmActionCallback = null; 
+                };
+            }
+            const confirmModalAction = document.getElementById('confirm-modal-action');
+            if (confirmModalAction) {
+                confirmModalAction.onclick = () => {
+                    if (confirmActionCallback) {
+                        confirmActionCallback(); 
+                    }
+                };
+            }
         }
 
-        function initApp() {
-            // Load theme first
-            mainColorKey = loadColor();
-            applyTheme();
+        // --- Main Initialization Function ---
+        // Expose to global scope for HTML body onload attribute
+        window.initApp = async function() {
+            // 1. Show loading screen
+            const appContainer = document.getElementById('app-container');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (!appContainer || !loadingOverlay) return;
+
+            appContainer.classList.add('hidden');
+            loadingOverlay.classList.remove('hidden');
+
+            // 2. Initialize Firebase and Auth
+            await initFirebase();
             
-            // Load list data
-            appTitle = loadTitle();
-            appItems = loadItems();
-            trashItems = loadTrash();
+            if (!isAuthReady) {
+                // If auth failed, stop here
+                return;
+            }
+
+            // 3. Check for existing data and start listener
+            checkAndCreateListIfEmpty();
             
-            // Render everything
-            renderList();
+            // 4. Hide loading screen and show app
+            loadingOverlay.classList.add('opacity-0');
+            setTimeout(() => {
+                loadingOverlay.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                appContainer.classList.remove('opacity-0');
+            }, 300);
         }
     </script>
 </body>
