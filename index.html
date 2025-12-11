@@ -3,1075 +3,831 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>黃刀鎮極光打包清單 - 主題色切換</title>
+    <title>行李清單 App (極地主題與自訂色)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 這裡將不再有靜態的 Tailwind 配置，它會在 JS 腳本中動態注入 -->
-    
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- PWA / App Icon Configuration - 顏色將在 JS 中動態更新 -->
-    <meta name="theme-color" content="#14B8A6">
-    <link rel="apple-touch-icon" href="https://placehold.co/180x180/14B8A6/ffffff?text=List"> 
-    <link rel="icon" href="https://placehold.co/192x192/14B8A6/ffffff?text=List"> 
+    <!-- PWA / App Icon Configuration -->
+    <meta name="theme-color" content="#0d9488">
+    <meta name="apple-mobile-web-app-title" content="極光清單">
+    <meta name="application-name" content="極光清單">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- IMPORTANT: Link to the Manifest File for PWA functionality -->
+    <link rel="manifest" href="manifest.json"/> 
+
+    <!-- Apple Touch Icon (Using a placeholder aurora icon URL) -->
+    <link rel="apple-touch-icon" href="https://placehold.co/180x180/0d9488/ffffff?text=%E2%9C%88%EF%B8%8F"> 
+    <link rel="icon" href="https://placehold.co/192x192/0d9488/ffffff?text=%E2%9C%88%EF%B8%8F"> 
+    
+    <style>
+        /* --- Dynamic Theme Variables (Default to Teal) --- */
+        :root {
+            /* RGB values for main theme color (Teal 600) */
+            --color-main-600: 5 150 105; 
+            --color-main-800: 4 78 59;  
+            --color-main-300: 52 211, 153; 
+            --color-main-100: 209 250 229; 
+            --color-main-50: 236 253 245; 
+        }
+
+        /* --- Theme Utility Classes (Using Variables) --- */
+        .bg-theme { background-color: rgb(var(--color-main-600)); }
+        .bg-theme-50 { background-color: rgb(var(--color-main-50)); }
+        .bg-theme-300 { background-color: rgb(var(--color-main-300)); }
+        .bg-theme-800 { background-color: rgb(var(--color-main-800)); }
+        .text-theme-100 { color: rgb(var(--color-main-100)); }
+        .text-theme-900 { color: rgb(var(--color-main-800)); }
+        .focus-ring-theme-500:focus { --tw-ring-color: rgb(var(--color-main-600)); }
+        .hover\:border-theme-300:hover { border-color: rgb(var(--color-main-300)); }
+
+        /* --- Custom Checkbox Styling using Variables --- */
+        .check-button.checked {
+            background-color: rgb(var(--color-main-600));
+            border-color: rgb(var(--color-main-600));
+        }
+        .check-button:hover:not(.checked) {
+            border-color: rgb(var(--color-main-300)); 
+        }
+
+        /* --- General Styles --- */
+        .lucide {
+            display: inline-block;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        #main-header {
+            z-index: 20;
+        }
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        #nav-menu {
+            transition: transform 0.3s ease-out;
+            transform: translateX(100%);
+            z-index: 30;
+        }
+        #nav-menu.open {
+            transform: translateX(0);
+        }
+        #nav-menu-backdrop.open {
+            display: block;
+        }
+        #nav-menu-backdrop {
+            display: none;
+            z-index: 25;
+            background: rgba(0, 0, 0, 0.4);
+        }
+    </style>
 </head>
-<body class="bg-gray-50 font-sans min-h-screen">
+<body class="bg-slate-50 font-sans" onload="initApp()">
 
-    <div id="app" class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
-        <!-- 標頭與功能按鈕 -->
-        <header class="flex justify-between items-center mb-6">
-            <h1 id="app-title" class="text-3xl sm:text-4xl font-extrabold text-gray-900 cursor-pointer">
-                黃刀鎮極光打包清單
-            </h1>
-            <div class="flex space-x-2">
-                <!-- 顏色主題按鈕 (新加入) -->
-                <button 
-                    id="theme-color-btn"
-                    class="p-3 text-white rounded-full shadow-lg transition duration-150 js-theme-control"
-                    title="更改應用程式主題色"
-                >
-                    <i data-lucide="palette" class="w-6 h-6"></i>
-                </button>
-                <!-- 分類管理按鈕 -->
-                <button 
-                    id="manage-categories-btn"
-                    class="p-3 text-white rounded-full shadow-lg transition duration-150 js-theme-control"
-                    title="管理分類"
-                >
-                    <i data-lucide="layout-list" class="w-6 h-6"></i>
-                </button>
-                <!-- 菜單按鈕 (重置/垃圾桶) -->
-                <button 
-                    id="menu-btn"
-                    class="p-3 bg-gray-700 text-white rounded-full shadow-lg hover:bg-gray-800 transition duration-150"
-                    title="清單工具箱"
-                >
-                    <i data-lucide="menu" class="w-6 h-6"></i>
-                </button>
-            </div>
-        </header>
+    <!-- Navigation Drawer (Hamburger Menu) -->
+    <div id="nav-menu-backdrop" class="fixed inset-0" onclick="toggleNavMenu()"></div>
+    <div id="nav-menu" class="fixed top-0 right-0 h-full w-64 bg-white shadow-2xl p-6 overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+            <h3 class="text-lg font-bold text-slate-700">清單分類</h3>
+            <button onclick="toggleNavMenu()" class="text-slate-500 hover:text-slate-700">
+                <i data-lucide="x" class="lucide w-6 h-6"></i>
+            </button>
+        </div>
+        <ul id="nav-links" class="space-y-3">
+            <!-- Navigation links will be populated here -->
+        </ul>
+    </div>
 
-        <!-- 新增項目表單 -->
-        <form id="add-item-form" class="mb-8 bg-white p-4 sm:p-6 rounded-2xl shadow-xl border-t-4 border-primary-500">
-            <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-                <input
-                    type="text"
-                    id="new-item-input"
-                    placeholder="輸入要打包的禦寒/攝影物品..."
-                    required
-                    class="flex-grow p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition duration-150"
-                />
-                <button
-                    type="submit"
-                    class="p-3 text-white font-semibold rounded-lg shadow-md transition duration-200 bg-primary-500 hover:bg-primary-600 active:ring-4 active:ring-primary-500/50 disabled:bg-gray-400"
-                >
-                    新增項目
-                </button>
-            </div>
-        </form>
-
-        <!-- 清單容器 -->
-        <main id="list-container" class="space-y-6">
-            <!-- 清單項目將在此處渲染 -->
-        </main>
+    <!-- Main Container -->
+    <div id="app-container">
         
-        <!-- 載入中指示器 -->
-        <div id="loading-indicator" class="flex justify-center items-center p-10 hidden">
-            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500"></div>
-            <p class="ml-4 text-xl text-gray-600">正在載入清單...</p>
+        <!-- Header -->
+        <div id="main-header" class="bg-theme text-white shadow-lg sticky top-0">
+            <div class="max-w-md mx-auto px-4 py-4">
+                <div class="flex justify-between items-center mb-2">
+                    <!-- Editable Title -->
+                    <h1 class="text-xl font-bold flex items-center gap-2 cursor-pointer" onclick="editTitle()">
+                        <i data-lucide="sparkles" class="lucide w-6 h-6"></i>
+                        <span id="app-title">黃刀鎮極光之旅清單</span>
+                        <i data-lucide="pencil" class="lucide w-3 h-3 text-theme-100"></i>
+                    </h1>
+                    
+                    <div class="flex space-x-3 items-center">
+                        <!-- Color Picker Button -->
+                        <button id="color-picker-button" class="text-theme-100 hover:text-white transition-colors" title="更改主題顏色">
+                            <i data-lucide="palette" class="lucide w-5 h-5"></i>
+                        </button>
+                        <!-- Trash Button -->
+                        <button id="trash-button" class="text-theme-100 hover:text-red-300 transition-colors" title="回收站">
+                            <i data-lucide="trash-2" class="lucide w-5 h-5"></i>
+                            <span id="trash-count" class="absolute -mt-2 -ml-2 text-[10px] bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-white font-bold" style="display:none;">0</span>
+                        </button>
+                        <!-- Reset Button -->
+                        <button id="reset-button" class="text-theme-100 hover:text-white transition-colors" title="重置清單">
+                            <i data-lucide="rotate-ccw" class="lucide w-5 h-5"></i>
+                        </button>
+                        <!-- Hamburger Menu Button -->
+                        <button id="menu-button" class="text-theme-100 hover:text-white transition-colors" title="分類導航" onclick="toggleNavMenu()">
+                            <i data-lucide="menu" class="lucide w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="bg-theme-800 rounded-full h-4 w-full overflow-hidden">
+                    <div id="progress-bar" class="bg-theme-300 h-full transition-all duration-500 ease-out flex items-center justify-end pr-2 text-[10px] font-bold text-theme-900" style="width: 0%">
+                    </div>
+                </div>
+                <div id="progress-message" class="text-xs text-theme-100 mt-1 text-right">
+                    繼續加油！
+                </div>
+            </div>
+        </div>
+
+        <!-- List Content Area -->
+        <div id="list-container" class="max-w-md mx-auto px-4 py-6 space-y-6 pb-12">
+            <!-- List items will be rendered here by JavaScript -->
+        </div>
+
+        <div class="max-w-md mx-auto px-4 text-center text-slate-400 text-xs pb-4">
+            <p class="flex items-center justify-center gap-1">
+                <i data-lucide="luggage" class="lucide w-4 h-4"></i>
+                準備好出發了嗎？
+            </p>
         </div>
     </div>
 
-    <!-- 模態框：分類管理 -->
-    <dialog id="category-modal" class="p-6 bg-white rounded-xl shadow-2xl backdrop:bg-black/50 w-full max-w-lg">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">管理分類與順序</h2>
-        
-        <div id="category-list-container" class="space-y-3 mb-6 max-h-96 overflow-y-auto pr-2">
-            <!-- 分類列表將在此處渲染 -->
+    <!-- Color Picker Modal -->
+    <dialog id="color-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
+        <h3 class="text-xl font-bold mb-4 flex items-center gap-2 text-slate-700">
+            <i data-lucide="palette" class="lucide w-5 h-5 text-teal-600"></i>
+            選擇主題顏色
+        </h3>
+        <div id="color-palette" class="grid grid-cols-5 gap-3 p-2">
+            <!-- Colors will be rendered here -->
         </div>
+        <button id="close-color-modal" class="mt-6 w-full py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors">
+            關閉
+        </button>
+    </dialog>
 
-        <div class="flex space-x-2 mt-4">
-            <input
-                type="text"
-                id="new-category-input"
-                placeholder="新增分類名稱"
-                class="flex-grow p-2 border rounded-lg focus:ring-primary-500 focus:border-primary-500"
-            />
-            <button
-                id="add-category-btn"
-                class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition"
-            >
-                新增
-            </button>
+    <!-- Trash Modal -->
+    <dialog id="trash-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
+        <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center gap-2">
+            <i data-lucide="trash-2" class="lucide w-5 h-5"></i>
+            回收站
+        </h3>
+        <div id="trash-content" class="text-slate-700 space-y-3 max-h-80 overflow-y-auto pr-2">
+            <!-- Deleted items will be rendered here -->
         </div>
-
-        <div class="flex justify-end mt-6">
-            <button onclick="document.getElementById('category-modal').close()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">
-                關閉
-            </button>
-        </div>
+        <button id="close-trash-modal-button" class="mt-6 w-full py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors">
+            關閉
+        </button>
+        <button id="empty-trash-button" class="mt-2 w-full py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+            清空回收站
+        </button>
     </dialog>
     
-    <!-- 模態框：主色盤 (Theme Color Picker - 新增) -->
-    <dialog id="theme-color-modal" class="p-6 bg-white rounded-xl shadow-2xl backdrop:bg-black/50 w-full max-w-sm">
-        <h2 class="text-xl font-bold mb-4 text-gray-800">選擇應用程式主題色</h2>
-        <p class="text-sm text-gray-600 mb-4">這將更改按鈕、邊框和主要視覺元素的顏色。</p>
-        
-        <div id="theme-palette" class="grid grid-cols-2 gap-4">
-            <!-- 顏色選項將在此處渲染 -->
-        </div>
-
-        <div class="flex justify-end mt-6">
-            <button onclick="document.getElementById('theme-color-modal').close()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">
-                關閉
-            </button>
-        </div>
-    </dialog>
-
-
-    <!-- 模態框：工具箱菜單 (垃圾桶/重置) -->
-    <dialog id="menu-modal" class="p-6 bg-white rounded-xl shadow-2xl backdrop:bg-black/50 w-full max-w-xs">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">清單工具箱</h2>
-        
-        <div class="space-y-4">
-            <button
-                id="empty-trash-btn"
-                class="w-full flex items-center justify-between p-3 text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition disabled:bg-gray-400"
-            >
-                清空垃圾桶 
-                <span id="trash-count" class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full ml-2">
-                    0
-                </span>
-            </button>
-
-            <button
-                id="full-reset-btn"
-                class="w-full flex items-center p-3 text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
-            >
-                完全重置清單 (危險)
-            </button>
-        </div>
-
-        <div class="flex justify-end mt-6">
-            <button onclick="document.getElementById('menu-modal').close()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">
-                關閉
-            </button>
-        </div>
-    </dialog>
-
-    <!-- 模態框：統一確認視窗 (用於取代 alert/confirm) -->
-    <dialog id="confirmation-modal" class="p-6 bg-white rounded-xl shadow-2xl backdrop:bg-black/50 w-full max-w-sm">
-        <p id="confirmation-message" class="text-lg mb-6 text-gray-800 font-medium"></p>
+    <!-- Title Edit Modal (Replaces prompt()) -->
+    <dialog id="title-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
+        <h3 class="text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <i data-lucide="pencil" class="lucide w-5 h-5 text-theme"></i>
+            編輯清單標題
+        </h3>
+        <input type="text" id="title-input" class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-theme-500 text-lg mb-4" maxlength="50">
         <div class="flex justify-end space-x-3">
-            <button id="confirmation-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                取消
-            </button>
-            <button id="confirmation-confirm" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
-                確定
-            </button>
+            <button id="cancel-title-edit" class="py-2 px-4 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors">取消</button>
+            <button id="save-title-edit" class="py-2 px-4 bg-theme text-white rounded-lg hover:bg-theme-800 transition-colors">儲存</button>
         </div>
     </dialog>
 
-    <script type="module">
-        // --- Firebase 模組導入 ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            addDoc, 
-            updateDoc, 
-            deleteDoc, 
-            onSnapshot, 
-            collection, 
-            query, 
-            where, 
-            getDocs, 
-            writeBatch,
-            serverTimestamp,
-            getDoc,
-            setDoc,
-            setLogLevel
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <!-- Generic Confirmation Modal (Replaces confirm() for Reset/Empty Trash) -->
+    <dialog id="confirm-modal" class="p-6 rounded-xl shadow-2xl backdrop:blur-sm max-w-sm w-full">
+        <h3 id="confirm-modal-title" class="text-xl font-bold mb-4 flex items-center gap-2 text-red-600">
+            <i data-lucide="alert-triangle" class="lucide w-5 h-5"></i>
+            確認操作
+        </h3>
+        <p id="confirm-modal-message" class="text-slate-700 mb-6"></p>
+        <div class="flex justify-end space-x-3">
+            <button id="confirm-modal-cancel" class="py-2 px-4 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors">取消</button>
+            <button id="confirm-modal-action" class="py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">確認並繼續</button>
+        </div>
+    </dialog>
 
-        // 設定 Firestore 錯誤日誌等級
-        setLogLevel('error'); 
 
-        // --- 全域變數與 Firebase 初始化 ---
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    <script>
+        // --- Storage Keys ---
+        const STORAGE_KEY_ITEMS = 'packing-list-v4-items';
+        const STORAGE_KEY_TRASH = 'packing-list-v4-trash';
+        const STORAGE_KEY_TITLE = 'packing-list-v4-title';
+        const STORAGE_KEY_COLOR = 'packing-list-v4-color';
 
-        let app, db, auth;
-        let userId = null;
-        let unsubscribeItems = null;
-        let unsubscribeCategories = null;
-        let unsubscribeTheme = null; // 新增主題監聽器
-        let currentCategories = [];
-        let itemsData = {}; 
-
-        // --- 全局主題顏色配置 (使用 Tailwind 內建顏色) ---
-        const THEME_COLORS = {
-            'teal': { hex: '#14B8A6', name: '湖水綠', class: 'teal' }, // 預設
-            'indigo': { hex: '#6366F1', name: '星空藍', class: 'indigo' },
-            'rose': { hex: '#F43F5E', name: '極光紅', class: 'rose' },
-            'amber': { hex: '#F59E0B', name: '琥珀黃', class: 'amber' },
-            'fuchsia': { hex: '#E879F9', name: '夢幻紫', class: 'fuchsia' },
+        // --- Color Themes ---
+        // RGB tuples for 600, 800 (dark), 300 (light), 100 (accent), 50 (bg)
+        const COLOR_THEMES = {
+            emerald: { name: '極光綠', color: [5, 150, 105], dark: [4, 78, 59], light: [52, 211, 153], accent: [209, 250, 229], bg: [236, 253, 245] },
+            blue: { name: '冰川藍', color: [37, 99, 235], dark: [30, 64, 175], light: [96, 165, 250], accent: [219, 234, 254], bg: [239, 246, 255] },
+            rose: { name: '薔薇粉', color: [225, 29, 72], dark: [159, 18, 57], light: [251, 113, 133], accent: [255, 237, 240], bg: [255, 241, 245] },
+            indigo: { name: '星空紫', color: [79, 70, 229], dark: [55, 48, 163], light: [129, 140, 248], accent: [224, 231, 255], bg: [238, 242, 255] },
+            amber: { name: '日落黃', color: [245, 158, 11], dark: [180, 83, 9], light: [252, 211, 77], accent: [255, 251, 235], bg: [255, 253, 242] }, 
         };
-        const DEFAULT_THEME_COLOR_KEY = 'teal';
-        let mainColorKey = DEFAULT_THEME_COLOR_KEY; 
+        const DEFAULT_COLOR = 'emerald';
+        let mainColorKey = DEFAULT_COLOR;
 
-        // 初始分類順序
-        const INITIAL_CATEGORY_ORDER = [
-            "禦寒衣物", 
-            "電子與攝影", 
-            "重要文件與個人", 
-            "零食與暖身", 
-            "盥洗用品"
-        ];
-
-        // 黃刀鎮初始清單內容
-        const CATEGORY_MAP = {
-            "護照、簽證與ID": "重要文件與個人", 
-            "機票、酒店預訂單": "重要文件與個人", 
-            "現金/信用卡": "重要文件與個人", 
-            "手機與充電器": "電子與攝影", 
-            "相機、備用電池與SD卡": "電子與攝影", 
-            "腳架 (拍攝極光)": "電子與攝影", 
-            "萬用轉接頭/延長線": "電子與攝影", 
-            "發熱衣褲 (上下身各3套)": "禦寒衣物", 
-            "羊毛襪 (6雙以上)": "禦寒衣物", 
-            "毛衣/刷毛外套": "禦寒衣物", 
-            "極地羽絨外套 (防風防水)": "禦寒衣物", 
-            "雪褲或滑雪褲": "禦寒衣物", 
-            "保暖靴 (零下30度等級)": "禦寒衣物", 
-            "防水手套 (內層羊毛)": "禦寒衣物", 
-            "圍巾、毛帽、面罩": "禦寒衣物", 
-            "暖暖包 (大量，手腳用)": "零食與暖身", 
-            "保溫瓶": "零食與暖身", 
-            "高熱量零食 (巧克力/堅果)": "零食與暖身", 
-            "牙刷牙膏": "盥洗用品", 
-            "保濕乳液與護唇膏 (極度乾燥)": "盥洗用品", 
-            "防曬乳 (雪地反光)": "盥洗用品", 
-            "個人藥品": "盥洗用品", 
-        };
-
-        const PDF_DATA = Object.entries(CATEGORY_MAP).map(([name, category]) => {
-            return { 
-                name, 
-                isPacked: false, 
-                category, 
-                isDeleted: false,
-                // 移除了 colorKey
-            };
-        });
-
-
-        // --- UI Helper Functions ---
+        // --- App Data (Updated for Yellowknife) ---
         
-        // 顯示統一的確認模態框
-        function showConfirmationModal(message, callback) {
-            const modal = document.getElementById('confirmation-modal');
-            document.getElementById('confirmation-message').textContent = message;
-            
-            // 移除舊的監聽器，避免重複執行
-            const oldConfirm = document.getElementById('confirmation-confirm');
-            const newConfirm = oldConfirm.cloneNode(true);
-            oldConfirm.parentNode.replaceChild(newConfirm, oldConfirm);
+        const initialData = {
+            "極地保暖裝備": [
+                { id: 100, text: "雪褲 (防水防風)", checked: false },
+                { id: 101, text: "羽絨外套 (極地等級，-30°C)", checked: false },
+                { id: 102, text: "保暖內層衣褲 (羊毛或發熱衣)", checked: false },
+                { id: 103, text: "中層衣物 (刷毛或輕羽絨)", checked: false },
+                { id: 104, text: "羊毛襪 (至少3雙)", checked: false },
+                { id: 105, text: "雪靴 (防水防滑，耐低溫)", checked: false },
+                { id: 106, text: "防風防水手套 (兩層式最佳)", checked: false },
+                { id: 107, text: "毛帽/保暖頭套 (遮住耳朵和臉頰)", checked: false },
+                { id: 108, text: "暖暖包 (大量，貼式與手握式)", checked: false },
+                { id: 109, text: "圍巾/面罩 (防風，保護頸部)", checked: false },
+            ],
+            "無敵重要物品": [
+                { id: 1, text: "護照", checked: false },
+                { id: 2, text: "手機", checked: false },
+                { id: 3, text: "SIM卡", checked: false },
+                { id: 4, text: "加幣 (現金)", checked: false },
+                { id: 5, text: "家鑰匙", checked: false },
+                { id: 6, text: "錢包", checked: false },
+            ],
+            "電子與攝影類": [
+                { id: 37, text: "相機+三腳架 (極光拍攝必備)", checked: false },
+                { id: 38, text: "備用電池 (低溫下電力流失快)", checked: false },
+                { id: 39, text: "充電線+充電頭", checked: false },
+                { id: 40, text: "行動電源", checked: false },
+                { id: 41, text: "筆電(電線+滑鼠)", checked: false },
+                { id: 42, text: "耳機", checked: false },
+            ],
+            "化妝品、盥洗與藥品": [
+                { id: 10, text: "牙刷牙膏", checked: false },
+                { id: 11, text: "高保濕乳液/面霜 (防凍傷)", checked: false },
+                { id: 12, text: "護唇膏 (極度保濕)", checked: false },
+                { id: 13, text: "凡士林 (塗抹臉部裸露處)", checked: false },
+                { id: 14, text: "眼藥水", checked: false },
+                { id: 15, text: "常備藥品 (感冒藥、止痛藥)", checked: false },
+                { id: 16, text: "暖色系化妝品", checked: false },
+            ],
+            "其他必需品": [
+                { id: 30, text: "雨傘/小型摺疊傘", checked: false },
+                { id: 31, text: "保溫瓶 (隨時補充熱飲)", checked: false },
+                { id: 32, text: "太陽眼鏡 (雪地防眩光)", checked: false },
+                { id: 33, text: "衛生紙/濕紙巾", checked: false },
+                { id: 34, text: "口罩 (防寒、乾燥)", checked: false },
+            ],
+            "額外 OPTIONAL": [
+                { id: 45, text: "延長線(多頭插座)", checked: false },
+                { id: 46, text: "U型枕", checked: false },
+                { id: 47, text: "環保袋", checked: false },
+                { id: 48, text: "眼罩、耳塞", checked: false },
+            ]
+        };
 
-            newConfirm.onclick = () => {
-                modal.close();
-                callback(true);
-            };
+        let appTitle = "黃刀鎮極光之旅清單";
+        let appItems = {};
+        let trashItems = []; 
+        let confirmActionCallback = null; 
 
-            document.getElementById('confirmation-cancel').onclick = () => {
-                modal.close();
-                callback(false);
-            };
 
-            modal.showModal();
-        }
+        // --- Storage Handlers ---
 
-        function setLoading(isLoading) {
-            const loadingEl = document.getElementById('loading-indicator');
-            const appEl = document.getElementById('app');
-            if (isLoading) {
-                loadingEl.classList.remove('hidden');
-                appEl.classList.add('opacity-50', 'pointer-events-none');
-            } else {
-                loadingEl.classList.add('hidden');
-                appEl.classList.remove('opacity-50', 'pointer-events-none');
+        function loadItems() {
+            const savedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
+            // If the structure changes, you might load old data. For a new major trip, we reset.
+            if (!savedItems) {
+                console.log("Loading initial Yellowknife data.");
+                return JSON.parse(JSON.stringify(initialData)); 
             }
+            return JSON.parse(savedItems);
+        }
+
+        function loadTitle() {
+            return localStorage.getItem(STORAGE_KEY_TITLE) || "黃刀鎮極光之旅清單";
         }
         
-        // 應用主題色到 Tailwind Configuration 和 UI
-        function applyTheme() {
-            const theme = THEME_COLORS[mainColorKey] || THEME_COLORS[DEFAULT_THEME_COLOR_KEY];
-            const primaryColorHex = theme.hex;
-            const primaryColorClass = theme.class;
+        function loadColor() {
+            return localStorage.getItem(STORAGE_KEY_COLOR) || DEFAULT_COLOR;
+        }
+        
+        function loadTrash() {
+            const savedTrash = localStorage.getItem(STORAGE_KEY_TRASH);
+            return savedTrash ? JSON.parse(savedTrash) : [];
+        }
 
-            // 1. 動態更新 Tailwind 配置
-            window.tailwind.config = {
-                theme: {
-                    extend: {
-                        fontFamily: {
-                            sans: ['Inter', 'sans-serif'],
-                        },
-                        colors: {
-                            // 設定主要強調色為選中的顏色
-                            primary: {
-                                500: primaryColorHex, 
-                                600: primaryColorHex, // 簡化為 500
-                            },
-                        }
-                    }
-                }
-            };
+        function saveItems() {
+            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(appItems));
+            localStorage.setItem(STORAGE_KEY_TRASH, JSON.stringify(trashItems));
+        }
+        
+        function saveTitle() {
+            localStorage.setItem(STORAGE_KEY_TITLE, appTitle);
+            document.getElementById('app-title').textContent = appTitle;
+        }
+        
+        function saveColor(key) {
+            mainColorKey = key;
+            localStorage.setItem(STORAGE_KEY_COLOR, mainColorKey);
+            applyTheme();
+        }
+
+
+        // --- UI Logic ---
+        
+        function applyTheme() {
+            const theme = COLOR_THEMES[mainColorKey];
+            const root = document.documentElement;
+            root.style.setProperty('--color-main-600', theme.color.join(' '));
+            root.style.setProperty('--color-main-800', theme.dark.join(' '));
+            root.style.setProperty('--color-main-300', theme.light.join(' '));
+            root.style.setProperty('--color-main-100', theme.accent.join(' '));
+            root.style.setProperty('--color-main-50', theme.bg.join(' '));
             
-            // 重新初始化 Tailwind (這是一個非標準的技巧，用於動態變更主題色)
-            window.tailwind.config.theme.extend.colors.primary.DEFAULT = primaryColorHex;
-            
-            // 由於 Tailwind 重新配置可能會延遲，這裡強制重新渲染清單以應用新顏色
-            // 我們也會在 auth ready 時觸發一次 renderList
-            
-            // 2. 更新 App Icon/Meta Theme Color
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', primaryColorHex);
-            
-            // 3. 更新所有帶有 js-theme-control 類別的元素 (確保 hover 和背景色正確)
-            const themeControls = document.querySelectorAll('.js-theme-control');
-            themeControls.forEach(el => {
-                // 移除舊的類別 (這是一個複雜的步驟，但對於動態主題是必需的)
-                const classesToRemove = ['bg-primary-500', 'hover:bg-primary-600', 'ring-primary-500'];
-                Object.keys(THEME_COLORS).forEach(key => {
-                     // 移除可能的原始 Tailwind 顏色類別
-                    classesToRemove.push(`bg-${key}-500`);
-                    classesToRemove.push(`hover:bg-${key}-600`);
-                });
-                el.classList.remove(...classesToRemove);
-                
-                // 由於 primary 顏色已經在 config 中設定，我們只需要使用 primary 類別
-                el.classList.add('bg-primary-500', 'hover:bg-primary-600');
-            });
-            
-            // 重新渲染清單，確保應用到 border/ring 顏色
+            // Re-render the list to update check-box colors and category header backgrounds
             renderList();
         }
 
-
-        // --- Firestore Data Operations ---
-
-        function getItemsCollectionRef() {
-            if (!db || !userId) return null;
-            return collection(db, 'artifacts', appId, 'users', userId, 'packing_list');
+        function calculateProgress() {
+            let total = 0;
+            let checked = 0;
+            Object.values(appItems).forEach(categoryItems => {
+                categoryItems.forEach(item => {
+                    total++;
+                    if (item.checked) checked++;
+                });
+            });
+            const progress = total === 0 ? 0 : Math.round((checked / total) * 100);
+            return { total, checked, progress };
         }
 
-        function getCategoryConfigRef() {
-            if (!db || !userId) return null;
-            // Config doc for categories
-            return doc(db, 'artifacts', appId, 'users', userId, 'config', 'categories');
+        function updateProgressDisplay() {
+            const { checked, total, progress } = calculateProgress();
+            const progressBar = document.getElementById('progress-bar');
+            const progressMessage = document.getElementById('progress-message');
+            const trashCount = document.getElementById('trash-count');
+
+            progressBar.style.width = `${progress}%`;
+            
+            const progressBarText = progress > 5 ? `${progress}%` : '';
+            if (progressBar.textContent !== progressBarText) {
+                progressBar.textContent = progressBarText;
+            }
+
+            trashCount.textContent = trashItems.length > 99 ? '99+' : trashItems.length;
+            trashCount.style.display = trashItems.length > 0 ? 'flex' : 'none';
+
+            if (total > 0 && progress === 100) {
+                progressMessage.textContent = "極地裝備就緒！祝極光捕獲成功！🌌";
+            } else {
+                progressMessage.textContent = "繼續加油！";
+            }
         }
         
-        function getThemeConfigRef() {
-            if (!db || !userId) return null;
-            // Config doc for main theme
-            return doc(db, 'artifacts', appId, 'users', userId, 'config', 'theme');
+        function toggleNavMenu() {
+            const menu = document.getElementById('nav-menu');
+            const backdrop = document.getElementById('nav-menu-backdrop');
+            const isOpen = menu.classList.toggle('open');
+            backdrop.classList.toggle('open', isOpen);
+            document.body.style.overflow = isOpen ? 'hidden' : ''; 
         }
 
-        // 處理打包狀態切換
-        async function togglePacked(itemId, isPacked) {
-            const itemRef = doc(getItemsCollectionRef(), itemId);
-            try {
-                await updateDoc(itemRef, { isPacked: !isPacked, updatedAt: serverTimestamp() });
-            } catch (error) {
-                console.error("切換狀態失敗:", error);
+        function scrollToCategory(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                const headerHeight = document.getElementById('main-header').offsetHeight;
+                const offsetTop = element.offsetTop - headerHeight - 16; 
+                window.scrollTo({ top: offsetTop, behavior: 'smooth' });
+                toggleNavMenu(); 
             }
+        }
+
+        // --- Modals (Title, Color, Confirm) ---
+
+        function editTitle() {
+            const titleModal = document.getElementById('title-modal');
+            const titleInput = document.getElementById('title-input');
+            
+            titleInput.value = appTitle;
+            titleModal.showModal();
+            titleInput.focus();
         }
         
-        // 儲存新的主題顏色鍵
-        async function updateThemeColor(key) {
-            const themeConfigRef = getThemeConfigRef();
-            try {
-                await setDoc(themeConfigRef, { mainColorKey: key, updatedAt: serverTimestamp() }, { merge: true });
-                // applyTheme 會由 onSnapshot 觸發
-                document.getElementById('theme-color-modal').close();
-            } catch (error) {
-                console.error("更新主題顏色失敗:", error);
+        function saveTitleEdit() {
+            const titleInput = document.getElementById('title-input');
+            const newTitle = titleInput.value.trim();
+            
+            if (newTitle !== "" && newTitle !== appTitle) {
+                appTitle = newTitle;
+                saveTitle();
             }
+            
+            document.getElementById('title-modal').close();
         }
 
+        function renderColorModal() {
+            const modal = document.getElementById('color-modal');
+            const palette = document.getElementById('color-palette');
 
-        // 軟刪除：移至垃圾桶
-        async function softDeleteItem(itemId, itemName) {
-            showConfirmationModal(`確定要將「${itemName}」移至垃圾桶嗎？`, async (confirmed) => {
-                if (confirmed) {
-                    const itemRef = doc(getItemsCollectionRef(), itemId);
-                    try {
-                        await updateDoc(itemRef, { isDeleted: true, updatedAt: serverTimestamp() });
-                    } catch (error) {
-                        console.error("將項目移至垃圾桶失敗:", error);
-                    }
-                }
-            });
-        }
-
-        // 永久刪除垃圾桶項目 (批量操作)
-        async function emptyTrash() {
-            const trashCount = document.getElementById('trash-count').textContent;
-            if (trashCount === '0') return;
-
-            showConfirmationModal(`確定要永久刪除垃圾桶中所有 ${trashCount} 個項目嗎？此操作不可逆。`, async (confirmed) => {
-                if (confirmed) {
-                    setLoading(true);
-                    try {
-                        const itemsRef = getItemsCollectionRef();
-                        const q = query(itemsRef, where('isDeleted', '==', true)); 
-                        const snapshot = await getDocs(q);
-                        
-                        const batch = writeBatch(db);
-                        let count = 0;
-                        snapshot.forEach(docSnapshot => {
-                            batch.delete(doc(itemsRef, docSnapshot.id));
-                            count++;
-                        });
-
-                        await batch.commit();
-                        console.log(`已永久刪除 ${count} 個項目。`);
-                    } catch (error) {
-                        console.error("清空垃圾桶失敗:", error);
-                    } finally {
-                        setLoading(false);
-                        document.getElementById('menu-modal').close();
-                    }
-                }
-            });
-        }
-
-        // 完全重置清單 (刪除所有項目和設定，恢復初始狀態)
-        async function fullReset() {
-            showConfirmationModal(`警告：確定要執行「完全重置」嗎？這將永久刪除您所有自訂的清單項目和分類設定。`, async (confirmed) => {
-                if (confirmed) {
-                    setLoading(true);
-                    try {
-                        const itemsRef = getItemsCollectionRef();
-                        const categoryConfigRef = getCategoryConfigRef();
-                        const themeConfigRef = getThemeConfigRef(); // 取得主題配置參考
-
-                        // 1. 刪除所有清單項目
-                        const snapshot = await getDocs(itemsRef);
-                        const batch = writeBatch(db);
-                        snapshot.forEach(docSnapshot => {
-                            batch.delete(doc(itemsRef, docSnapshot.id));
-                        });
-                        
-                        // 2. 刪除配置 (分類和主題)
-                        batch.delete(categoryConfigRef);
-                        batch.delete(themeConfigRef);
-                        
-                        await batch.commit();
-                        console.log("所有資料已清除。正在重新初始化...");
-
-                        // 3. 重新初始化資料
-                        await initializeData();
-                        document.getElementById('menu-modal').close();
-                    } catch (error) {
-                        console.error("執行完全重置失敗:", error);
-                    } finally {
-                        setLoading(false);
-                    }
-                }
-            });
-        }
-        
-        // --- 分類管理功能 (邏輯不變，但按鈕會套用主題色) ---
-
-        // 儲存分類順序
-        async function saveCategoryOrder(newOrder) {
-            const categoryConfigRef = getCategoryConfigRef();
-            if (!categoryConfigRef) return;
-            try {
-                const orderToSave = newOrder.filter(cat => cat !== '未分類項目');
-                await setDoc(categoryConfigRef, { order: orderToSave, updatedAt: serverTimestamp() }, { merge: true });
-                currentCategories = [...orderToSave, '未分類項目']; 
-                renderCategoryList(); 
-            } catch (error) {
-                console.error("更新分類順序失敗:", error);
-            }
-        }
-
-        // 移動分類順序
-        function moveCategory(index, direction) {
-            const managedCategories = currentCategories.filter(cat => cat !== '未分類項目');
-            const newOrder = [...managedCategories];
-            const newIndex = index + direction;
-            if (newIndex >= 0 && newIndex < newOrder.length) {
-                [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
-                saveCategoryOrder(newOrder);
-            }
-        }
-
-        // 渲染分類管理模態框內的列表
-        function renderCategoryList() {
-            const container = document.getElementById('category-list-container');
-            container.innerHTML = '';
-            const managedCategories = currentCategories.filter(cat => cat !== '未分類項目');
-
-            managedCategories.forEach((cat, index) => {
-                const div = document.createElement('div');
-                div.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg shadow-sm border border-gray-200";
-                div.innerHTML = `
-                    <span class="font-medium text-lg">${cat}</span>
-                    <div class="flex space-x-1">
-                        <button class="p-1 rounded-full text-gray-600 hover:bg-gray-200 disabled:opacity-50 move-up-btn" 
-                                title="上移" ${index === 0 ? 'disabled' : ''} data-index="${index}">
-                            <i data-lucide="chevron-up" class="w-5 h-5"></i>
-                        </button>
-                        <button class="p-1 rounded-full text-gray-600 hover:bg-gray-200 disabled:opacity-50 move-down-btn" 
-                                title="下移" ${index === managedCategories.length - 1 ? 'disabled' : ''} data-index="${index}">
-                            <i data-lucide="chevron-down" class="w-5 h-5"></i>
-                        </button>
-                        <button class="p-1 rounded-full text-red-500 hover:bg-red-100 transition delete-category-btn" 
-                                title="刪除分類" data-category="${cat}">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
+            palette.innerHTML = Object.keys(COLOR_THEMES).map(key => {
+                const theme = COLOR_THEMES[key];
+                const isSelected = key === mainColorKey;
+                const rgb = theme.color.join(',');
+                const borderClass = isSelected ? 'border-4 border-slate-800 scale-105' : 'border-2 border-slate-300';
+                
+                return `
+                    <div class="flex flex-col items-center">
+                        <button 
+                            class="color-option w-10 h-10 rounded-full shadow-md transition-transform transform hover:scale-110 ${borderClass}" 
+                            style="background-color: rgb(${rgb})" 
+                            data-color-key="${key}"
+                            aria-label="${theme.name}"
+                        ></button>
+                        <span class="text-xs mt-1 text-slate-600">${theme.name}</span>
                     </div>
                 `;
-                container.appendChild(div);
-                lucide.createIcons(); 
-            });
-
-            // 添加事件監聽器
-            container.querySelectorAll('.move-up-btn').forEach(btn => {
-                btn.onclick = () => moveCategory(parseInt(btn.dataset.index), -1);
-            });
-            container.querySelectorAll('.move-down-btn').forEach(btn => {
-                btn.onclick = () => moveCategory(parseInt(btn.dataset.index), 1);
-            });
-            container.querySelectorAll('.delete-category-btn').forEach(btn => {
-                btn.onclick = () => deleteCategory(btn.dataset.category);
-            });
-        }
-
-        // 新增分類
-        async function addCategory() {
-            const input = document.getElementById('new-category-input');
-            const name = input.value.trim();
-            if (!name || currentCategories.includes(name)) return;
+            }).join('');
             
-            const managedCategories = currentCategories.filter(cat => cat !== '未分類項目');
-            const newOrder = [...managedCategories, name];
-            await saveCategoryOrder(newOrder);
-            input.value = '';
-        }
-        
-        // 刪除分類
-        async function deleteCategory(catToDelete) {
-            showConfirmationModal(`確定要刪除分類「${catToDelete}」嗎？此操作不會刪除清單項目，但會將其歸類到「未分類項目」。`, async (confirmed) => {
-                if (confirmed) {
-                    setLoading(true);
-                    try {
-                        const managedCategories = currentCategories.filter(cat => cat !== '未分類項目');
-                        const newOrder = managedCategories.filter(cat => cat !== catToDelete);
-                        await saveCategoryOrder(newOrder); 
-                        
-                        const itemsRef = getItemsCollectionRef();
-                        const q = query(itemsRef, where('category', '==', catToDelete));
-                        const snapshot = await getDocs(q);
-
-                        const batch = writeBatch(db);
-                        snapshot.forEach(docSnapshot => {
-                            batch.update(doc(itemsRef, docSnapshot.id), { 
-                                category: '未分類項目', 
-                                updatedAt: serverTimestamp()
-                            });
-                        });
-                        await batch.commit();
-
-                    } catch (error) {
-                        console.error("刪除分類並更新項目失敗:", error);
-                    } finally {
-                        setLoading(false);
-                    }
-                }
-            });
-        }
-
-
-        // --- 主題色選擇功能 (新功能) ---
-        
-        // 渲染主色盤模態框內容
-        function renderThemePalette() {
-            const palette = document.getElementById('theme-palette');
-            palette.innerHTML = '';
-
-            Object.entries(THEME_COLORS).forEach(([key, theme]) => {
-                const isSelected = key === mainColorKey;
-                const button = document.createElement('button');
-                
-                // 這裡使用原始的 Tailwind 顏色類別來顯示選項顏色
-                const bgColorClass = `bg-${theme.class}-500`;
-                const ringClass = isSelected ? `ring-4 ring-offset-2 ring-primary-500 border-white` : 'border-gray-300';
-                
-                button.className = `
-                    ${bgColorClass} 
-                    w-full h-20 rounded-xl shadow-lg border-2 
-                    flex flex-col items-center justify-center text-sm font-semibold text-white transition 
-                    hover:scale-[1.05]
-                    ${ringClass}
-                `;
-                button.innerHTML = `
-                    <span>${theme.name}</span>
-                    <i data-lucide="check" class="w-4 h-4 mt-1 ${isSelected ? 'block' : 'hidden'}"></i>
-                `;
-                button.onclick = () => updateThemeColor(key);
-                palette.appendChild(button);
+            palette.querySelectorAll('.color-option').forEach(btn => {
+                btn.onclick = () => {
+                    saveColor(btn.dataset.colorKey);
+                    modal.close();
+                };
             });
 
+            modal.showModal();
+        }
+        
+        function showConfirm(title, message, callback) {
+            const modal = document.getElementById('confirm-modal');
+            // Update modal title and icon color (using red for confirmation warnings)
+            document.getElementById('confirm-modal-title').innerHTML = `<i data-lucide="alert-triangle" class="lucide w-5 h-5 text-red-600"></i> ${title}`;
+            document.getElementById('confirm-modal-message').textContent = message;
+            confirmActionCallback = callback;
             lucide.createIcons();
-            document.getElementById('theme-color-modal').showModal();
+            modal.showModal();
         }
 
-        // --- 渲染清單 (List Rendering) ---
-        
-        // 渲染單個清單項目
-        function renderItem(item) {
-            const itemDiv = document.createElement('div');
-            
-            // 項目不再有自訂顏色，使用淺灰或白色背景
-            const isPackedClass = item.isPacked ? 'opacity-70 border-gray-300 bg-gray-50' : 'bg-white border-gray-200 shadow-md'; 
-            
-            itemDiv.className = `flex flex-col sm:flex-row items-start sm:items-center p-3 mb-2 rounded-xl transition duration-300 ease-in-out border ${isPackedClass}`;
+        function triggerResetList() {
+            showConfirm(
+                "重置清單警告",
+                "確定要【完全重置】所有清單、刪除新增項目，並清空回收站嗎？此操作無法還原！",
+                resetListLogic
+            );
+        }
 
-            itemDiv.innerHTML = `
-                <div class="flex items-center flex-grow w-full sm:w-auto mb-2 sm:mb-0">
-                    <input type="checkbox" id="check-${item.id}" ${item.isPacked ? 'checked' : ''}
-                        class="h-6 w-6 text-primary-500 rounded cursor-pointer transition duration-150 ease-in-out focus:ring-2 focus:ring-primary-500 border-gray-400"
-                    />
+        function resetListLogic() {
+            appItems = JSON.parse(JSON.stringify(initialData)); 
+            trashItems = [];
+            appTitle = "黃刀鎮極光之旅清單";
+            mainColorKey = DEFAULT_COLOR;
+            localStorage.clear(); 
+            saveTitle(); 
+            saveColor(DEFAULT_COLOR); // Save default color and apply theme
+            saveItems();
+            renderList();
+            document.getElementById('confirm-modal').close();
+        }
+
+        function triggerEmptyTrash() {
+            showConfirm(
+                "清空回收站警告",
+                "確定要永久清空回收站嗎？此操作無法還原！",
+                emptyTrashLogic
+            );
+        }
+
+        function emptyTrashLogic() {
+            trashItems = [];
+            saveItems();
+            renderTrashModal();
+            updateProgressDisplay();
+            document.getElementById('confirm-modal').close();
+        }
+
+
+        // --- Item CRUD Handlers ---
+
+        function toggleCheck(category, id) {
+            appItems[category] = appItems[category].map(item => 
+                item.id === id ? { ...item, checked: !item.checked } : item
+            );
+            saveItems();
+            renderList();
+        }
+
+        function deleteItem(category, id) {
+            const index = appItems[category].findIndex(item => item.id === id);
+            if (index > -1) {
+                const [deletedItem] = appItems[category].splice(index, 1);
+                deletedItem.category = category; 
+                trashItems.push(deletedItem);
+                
+                // Only delete the category if it's NOT one of the initial categories
+                if (appItems[category].length === 0 && !Object.keys(initialData).includes(category)) {
+                    delete appItems[category];
+                }
+
+                saveItems();
+                renderList();
+            }
+        }
+        
+        function restoreItem(id) {
+            const index = trashItems.findIndex(item => item.id === id);
+            if (index > -1) {
+                const [restoredItem] = trashItems.splice(index, 1);
+                const category = restoredItem.category || "額外 OPTIONAL";
+                
+                if (!appItems[category]) {
+                    appItems[category] = [];
+                }
+                
+                appItems[category].push({ 
+                    id: restoredItem.id, 
+                    text: restoredItem.text, 
+                    checked: restoredItem.checked 
+                });
+                
+                saveItems();
+                renderList();
+                renderTrashModal(); 
+            }
+        }
+
+        function handleAddItem(category) {
+            const input = document.getElementById(`new-item-input-${category}`);
+            const text = input.value.trim();
+            if (!text) return;
+
+            const newItem = {
+                id: Date.now(),
+                text: text,
+                checked: false
+            };
+
+            if (!appItems[category]) {
+                appItems[category] = [];
+            }
+
+            appItems[category].push(newItem);
+            input.value = '';
+            saveItems();
+            renderList();
+        }
+        
+        // --- Rendering ---
+        
+        function renderNavMenu() {
+            const navLinksContainer = document.getElementById('nav-links');
+            const categories = Object.keys(appItems);
+            
+            navLinksContainer.innerHTML = categories.map(category => `
+                <li>
+                    <a href="javascript:void(0)" onclick="scrollToCategory('category-${category.replace(/\s/g, '-')}')"
+                       class="block px-3 py-2 text-slate-700 hover:bg-theme-50 rounded-lg transition-colors">
+                        ${category}
+                    </a>
+                </li>
+            `).join('');
+        }
+
+        function renderCategory(category, items) {
+            const finishedCount = items.filter(i => i.checked).length;
+            const totalCount = items.length;
+            const isComplete = totalCount > 0 && finishedCount === totalCount;
+            // Use bg-theme-50 for completed categories
+            const bgColor = isComplete ? 'bg-theme-50' : 'bg-slate-50'; 
+            const categoryId = `category-${category.replace(/\s/g, '-')}`;
+            
+            // Icon for important category
+            const importantIcon = category === "無敵重要物品" ? '<span class="text-red-500">!!!!</span>' : '';
+            // Icon for cold category
+            const coldIcon = category === "極地保暖裝備" ? '<i data-lucide="snowflake" class="lucide w-5 h-5 text-blue-500"></i>' : '';
+
+            // Item list HTML
+            const itemsHtml = items.map(item => `
+                <div class="group flex items-center p-3 hover:bg-slate-50 transition-colors ${item.checked ? 'bg-slate-50/50' : ''}">
+                    <!-- Check Button -->
+                    <button type="button" class="check-button flex-shrink-0 w-6 h-6 rounded-md border-2 mr-3 flex items-center justify-center transition-all ${
+                        item.checked 
+                            ? 'checked text-white' // The 'checked' class applies dynamic color via CSS var
+                            : 'border-slate-300 text-transparent hover:border-theme-300' // Use theme 300 for hover border
+                    }" data-category="${category}" data-id="${item.id}" aria-label="勾選項目">
+                        <i data-lucide="check" class="lucide w-4 h-4" stroke-width="3"></i>
+                    </button>
                     
-                    <span id="name-${item.id}" class="ml-4 flex-grow text-lg font-medium break-words cursor-pointer ${item.isPacked ? 'line-through text-gray-600' : 'text-gray-900'}">
-                        ${item.name}
+                    <!-- Text (Clickable to toggle check) -->
+                    <span 
+                        class="flex-grow cursor-pointer select-none text-sm transition-all ${item.checked ? 'text-slate-400 line-through' : 'text-slate-700'}"
+                        data-category="${category}" data-id="${item.id}"
+                    >
+                        ${item.text}
                     </span>
                     
-                    <!-- 移除了顏色選擇按鈕 -->
-
-                    <input type="text" id="edit-${item.id}" value="${item.name}" class="hidden w-full border-b border-primary-500 focus:outline-none text-lg font-medium" />
+                    <!-- Delete Button -->
+                    <button type="button" class="delete-button flex-shrink-0 text-slate-300 hover:text-red-500 p-2 transition-colors active:scale-95 cursor-pointer"
+                        data-category="${category}" data-id="${item.id}" aria-label="刪除項目">
+                        <i data-lucide="trash-2" class="lucide w-4 h-4"></i>
+                    </button>
                 </div>
-                
-                <div class="flex items-center space-x-2 ml-0 sm:ml-auto mt-2 sm:mt-0">
-                    <!-- 分類選擇器 -->
-                    <select id="category-select-${item.id}" class="p-1 border border-gray-300 rounded-lg text-sm bg-white" title="選擇分類">
-                        ${currentCategories.map(cat => 
-                            `<option value="${cat}" ${item.category === cat ? 'selected' : ''}>${cat}</option>`
-                        ).join('')}
-                    </select>
+            `).join('');
 
-                    <!-- 編輯按鈕 -->
-                    <button id="edit-btn-${item.id}" class="p-2 text-white bg-blue-500 rounded-full hover:bg-blue-600 transition shadow-md" title="編輯">
-                        <i data-lucide="edit-2" class="w-5 h-5"></i>
-                    </button>
+            // Category block HTML
+            return `
+                <div id="${categoryId}" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <!-- Category Header -->
+                    <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center ${bgColor}">
+                        <h2 class="font-bold text-slate-700 flex items-center gap-2 text-lg">
+                            ${importantIcon}
+                            ${coldIcon}
+                            ${category}
+                        </h2>
+                        <span class="text-xs px-2 py-1 rounded-full ${isComplete ? 'bg-theme-100 text-theme-900' : 'bg-slate-200 text-slate-600'}">
+                            ${finishedCount}/${totalCount}
+                        </span>
+                    </div>
 
-                    <!-- 刪除 (移至垃圾桶) 按鈕 -->
-                    <button id="delete-btn-${item.id}" class="p-2 text-white bg-red-500 rounded-full hover:bg-red-600 transition shadow-md" title="移至垃圾桶">
-                        <i data-lucide="trash-2" class="w-5 h-5"></i>
-                    </button>
+                    <!-- Items List -->
+                    <div class="divide-y divide-slate-100">
+                        ${itemsHtml}
+                    </div>
+
+                    <!-- Add Item Input -->
+                    <div class="p-3 bg-slate-50 border-t border-slate-100">
+                        <div class="relative">
+                            <input
+                                type="text"
+                                id="new-item-input-${category}"
+                                placeholder="新增${category}項目..."
+                                class="w-full pl-3 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-theme-500 focus:border-transparent transition-shadow"
+                                onkeydown="if(event.key === 'Enter') { handleAddItem('${category}'); }"
+                            />
+                            <button
+                                type="button"
+                                onclick="handleAddItem('${category}')"
+                                class="absolute right-1 top-1 p-1.5 bg-theme text-white rounded-md hover:bg-theme-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <i data-lucide="plus" class="lucide w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             `;
-            
-            // 啟用 Lucide 圖標
-            lucide.createIcons();
-
-            // --- 事件監聽器 ---
-            
-            // 打包狀態切換
-            itemDiv.querySelector(`#check-${item.id}`).onchange = () => togglePacked(item.id, item.isPacked);
-            itemDiv.querySelector(`#name-${item.id}`).onclick = () => togglePacked(item.id, item.isPacked);
-
-            // 編輯功能
-            const editBtn = itemDiv.querySelector(`#edit-btn-${item.id}`);
-            const nameSpan = itemDiv.querySelector(`#name-${item.id}`);
-            const editInput = itemDiv.querySelector(`#edit-${item.id}`);
-            
-            editBtn.onclick = () => {
-                if (editInput.classList.contains('hidden')) {
-                    // 進入編輯模式
-                    nameSpan.classList.add('hidden');
-                    editInput.classList.remove('hidden');
-                    editInput.focus();
-                    editBtn.innerHTML = '<i data-lucide="save" class="w-5 h-5"></i>';
-                    editBtn.title = '儲存';
-                    lucide.createIcons();
-                } else {
-                    // 儲存編輯
-                    handleEditSave(item.id, editInput.value);
-                    nameSpan.classList.remove('hidden');
-                    editInput.classList.add('hidden');
-                    editBtn.innerHTML = '<i data-lucide="edit-2" class="w-5 h-5"></i>';
-                    editBtn.title = '編輯';
-                    lucide.createIcons();
-                }
-            };
-            
-            editInput.onblur = () => {
-                if (!editInput.classList.contains('hidden')) {
-                    handleEditSave(item.id, editInput.value);
-                    nameSpan.classList.remove('hidden');
-                    editInput.classList.add('hidden');
-                    editBtn.innerHTML = '<i data-lucide="edit-2" class="w-5 h-5"></i>';
-                    editBtn.title = '編輯';
-                    lucide.createIcons();
-                }
-            };
-            editInput.onkeydown = (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    editInput.blur();
-                }
-            };
-            
-            async function handleEditSave(itemId, newName) {
-                const trimmedName = newName.trim();
-                if (!trimmedName || trimmedName === item.name) {
-                    editInput.value = item.name; // 恢復原始值
-                    return;
-                }
-                const itemRef = doc(getItemsCollectionRef(), itemId);
-                try {
-                    await updateDoc(itemRef, { name: trimmedName, updatedAt: serverTimestamp() });
-                } catch (error) {
-                    console.error("更新項目失敗:", error);
-                }
-            }
-            
-            // 刪除按鈕
-            itemDiv.querySelector(`#delete-btn-${item.id}`).onclick = () => softDeleteItem(item.id, item.name);
-            
-            // 分類選擇器變更
-            itemDiv.querySelector(`#category-select-${item.id}`).onchange = async (e) => {
-                const newCategory = e.target.value;
-                const itemRef = doc(getItemsCollectionRef(), item.id);
-                try {
-                    await updateDoc(itemRef, { category: newCategory, updatedAt: serverTimestamp() });
-                } catch (error) {
-                    console.error("更新分類失敗:", error);
-                }
-            };
-
-            return itemDiv;
-        }
-
-        // 渲染整個清單
-        function renderList() {
-            // ... (此處邏輯不變，只需要更新項目渲染) ...
-            const container = document.getElementById('list-container');
-            container.innerHTML = '';
-            
-            // 1. 將項目按分類分組
-            const groupedItems = {};
-            const allCategories = [...currentCategories];
-
-            allCategories.forEach(cat => {
-                groupedItems[cat] = [];
-            });
-
-            const activeItems = Object.values(itemsData).filter(item => !item.isDeleted);
-            
-            // 排序：未打包 (isPacked: false) 優先
-            activeItems.sort((a, b) => {
-                if (a.isPacked !== b.isPacked) {
-                    return a.isPacked ? 1 : -1;
-                }
-                // 接著按創建時間排序，較新的在前面
-                return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
-            });
-
-            // 分組
-            activeItems.forEach(item => {
-                const categoryKey = item.category && allCategories.includes(item.category) ? item.category : "未分類項目";
-                if (groupedItems[categoryKey]) {
-                    groupedItems[categoryKey].push(item);
-                } else {
-                     groupedItems["未分類項目"].push(item);
-                }
-            });
-
-            // 3. 渲染每個分組
-            const categoryKeys = allCategories.filter(key => groupedItems[key].length > 0 || key === '未分類項目'); 
-            
-            if (activeItems.length === 0) {
-                 container.innerHTML = `
-                    <div class="text-center p-10 bg-white rounded-xl shadow-lg">
-                        <p class="text-xl text-gray-500">清單是空的！新增一些項目吧。祝您黃刀鎮旅途愉快！</p>
-                    </div>
-                `;
-                document.getElementById('trash-count').textContent = Object.values(itemsData).filter(item => item.isDeleted).length;
-                return;
-            }
-
-            allCategories.forEach(categoryKey => {
-                const group = groupedItems[categoryKey];
-                if (!group || group.length === 0) return;
-
-                const unpackedItems = group.filter(item => !item.isPacked);
-                const packedItems = group.filter(item => item.isPacked);
-
-                const categoryDiv = document.createElement('div');
-                categoryDiv.className = 'mb-8';
-                
-                // 標題邊框應用主題色
-                categoryDiv.innerHTML = `
-                    <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-4 border-primary-500 pb-2 flex justify-between items-center">
-                        ${categoryKey} 
-                        <span class="text-sm font-normal text-gray-500">
-                            (${unpackedItems.length} 項未打包 / ${group.length} 項總計)
-                        </span>
-                    </h2>
-                    <div class="space-y-3" id="group-content-${categoryKey}"></div>
-                `;
-                container.appendChild(categoryDiv);
-
-                const groupContent = categoryDiv.querySelector(`#group-content-${categoryKey}`);
-
-                // 未打包項目
-                unpackedItems.forEach(item => {
-                    groupContent.appendChild(renderItem(item));
-                });
-                
-                // 已打包項目
-                if (packedItems.length > 0) {
-                    const packedSection = document.createElement('div');
-                    packedSection.className = 'pt-4 border-t border-dashed border-gray-200 mt-4';
-                    packedSection.innerHTML = '<p class="text-sm font-semibold text-gray-500 mb-2">已打包項目</p>';
-                    groupContent.appendChild(packedSection);
-                    
-                    packedItems.forEach(item => {
-                        groupContent.appendChild(renderItem(item));
-                    });
-                }
-            });
-
-            // 4. 更新垃圾桶計數
-            const trashCount = Object.values(itemsData).filter(item => item.isDeleted).length;
-            document.getElementById('trash-count').textContent = trashCount;
-            document.getElementById('empty-trash-btn').disabled = trashCount === 0;
-        }
-
-
-        // --- Firebase 認證與監聽設定 ---
-
-        // 檢查並匯入初始數據（如果清單為空）
-        async function initializeData() {
-            if (!db || !userId) return;
-            let fetchedOrder = INITIAL_CATEGORY_ORDER;
-
-            // 1. 檢查並載入/設定分類順序
-            const categoryConfigRef = getCategoryConfigRef();
-            try {
-                const docSnap = await getDoc(categoryConfigRef);
-                if (docSnap.exists() && docSnap.data().order) {
-                    fetchedOrder = docSnap.data().order;
-                } else {
-                    await setDoc(categoryConfigRef, { order: INITIAL_CATEGORY_ORDER, updatedAt: serverTimestamp() }, { merge: true });
-                }
-            } catch (e) {
-                console.warn("未能載入或設定分類順序，使用預設值。", e);
-            }
-            currentCategories = [...fetchedOrder.filter(cat => cat !== '未分類項目'), '未分類項目'];
-            renderCategoryList();
-
-            // 2. 檢查並載入/設定主題顏色 (新邏輯)
-            const themeConfigRef = getThemeConfigRef();
-            try {
-                const docSnap = await getDoc(themeConfigRef);
-                if (docSnap.exists() && docSnap.data().mainColorKey) {
-                    mainColorKey = docSnap.data().mainColorKey;
-                } else {
-                    await setDoc(themeConfigRef, { mainColorKey: DEFAULT_THEME_COLOR_KEY, updatedAt: serverTimestamp() }, { merge: true });
-                }
-            } catch (e) {
-                console.warn("未能載入或設定主題顏色，使用預設值。", e);
-            }
-            applyTheme(); // 應用主題色
-
-            // 3. 檢查並匯入清單項目 (如果為空)
-            const itemsRef = getItemsCollectionRef();
-            const snapshot = await getDocs(itemsRef);
-            if (snapshot.empty) {
-                console.log("清單為空，開始匯入黃刀鎮資料...");
-                const batch = writeBatch(db);
-                PDF_DATA.forEach(item => {
-                    const newDocRef = doc(itemsRef);
-                    batch.set(newDocRef, {
-                        ...item,
-                        createdAt: serverTimestamp(),
-                        updatedAt: serverTimestamp(),
-                        // 移除了 colorKey
-                    });
-                });
-                await batch.commit();
-                console.log("黃刀鎮資料匯入完成。");
-            }
         }
         
-        // 設定 Firestore 監聽器
-        function setupFirestoreListeners() {
-            if (!db || !userId) return;
-
-            if (unsubscribeItems) unsubscribeItems();
-            if (unsubscribeCategories) unsubscribeCategories();
-            if (unsubscribeTheme) unsubscribeTheme(); // 停止舊的主題監聽
-
-            const itemsRef = getItemsCollectionRef();
-            const categoryConfigRef = getCategoryConfigRef();
-            const themeConfigRef = getThemeConfigRef();
-
-            // 監聽清單項目變動
-            unsubscribeItems = onSnapshot(itemsRef, (snapshot) => {
-                const newItemsData = {};
-                snapshot.forEach(doc => {
-                    newItemsData[doc.id] = { id: doc.id, ...doc.data() };
-                });
-                itemsData = newItemsData;
-                renderList();
-            }, (error) => {
-                console.error("Firestore 項目監聽失敗:", error);
-            });
-
-            // 監聽分類配置變動
-            unsubscribeCategories = onSnapshot(categoryConfigRef, (docSnap) => {
-                let fetchedOrder = INITIAL_CATEGORY_ORDER;
-                if (docSnap.exists() && docSnap.data().order) {
-                    fetchedOrder = docSnap.data().order;
-                }
-                currentCategories = [...fetchedOrder.filter(cat => cat !== '未分類項目'), '未分類項目'];
-
-                renderCategoryList();
-                renderList();
-            }, (error) => {
-                console.error("Firestore 分類配置監聽失敗:", error);
-            });
+        function renderTrashModal() {
+            const modal = document.getElementById('trash-modal');
+            const contentDiv = document.getElementById('trash-content');
             
-            // 監聽主題配置變動 (NEW)
-            unsubscribeTheme = onSnapshot(themeConfigRef, (docSnap) => {
-                if (docSnap.exists() && docSnap.data().mainColorKey) {
-                    mainColorKey = docSnap.data().mainColorKey;
-                    applyTheme();
-                }
-            }, (error) => {
-                console.error("Firestore 主題配置監聽失敗:", error);
-            });
-        }
-
-
-        // 應用程式初始化
-        async function initApp() {
-            setLoading(true);
-            try {
-                if (!app) {
-                    app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-                }
-
-                await new Promise(resolve => {
-                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                        if (!user) {
-                            try {
-                                if (initialAuthToken) {
-                                    await signInWithCustomToken(auth, initialAuthToken);
-                                } else {
-                                    await signInAnonymously(auth);
-                                }
-                                user = auth.currentUser;
-                            } catch(e) {
-                                console.error("Firebase 認證失敗:", e);
-                            }
-                        }
-                        if (user) {
-                            userId = user.uid;
-                            document.getElementById('app-title').title = `用戶 ID: ${userId}`;
-                        }
-                        unsubscribe();
-                        resolve();
-                    });
-                });
-                
-                if (userId) {
-                    await initializeData();
-                    setupFirestoreListeners();
-                } else {
-                    console.error("無法取得有效的用戶 ID，應用程式將無法存取 Firestore。");
-                }
-                
-                setupEventListeners();
-
-            } catch (e) {
-                console.error("初始化應用程式失敗:", e);
-            } finally {
-                setLoading(false);
+            if (trashItems.length === 0) {
+                contentDiv.innerHTML = '<p class="text-center text-slate-500 py-6">回收站是空的。</p>';
+                document.getElementById('empty-trash-button').disabled = true;
+                document.getElementById('empty-trash-button').classList.add('opacity-50', 'cursor-not-allowed');
+                return;
             }
+            
+            document.getElementById('empty-trash-button').disabled = false;
+            document.getElementById('empty-trash-button').classList.remove('opacity-50', 'cursor-not-allowed');
+
+            contentDiv.innerHTML = trashItems.map(item => `
+                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-lg border border-slate-200">
+                    <div class="text-sm">
+                        <p class="font-semibold text-slate-700">${item.text}</p>
+                        <p class="text-xs text-slate-500">分類: ${item.category || '已刪除'}</p>
+                    </div>
+                    <button class="restore-button bg-theme text-white p-2 rounded-lg hover:bg-theme-800 transition-colors"
+                        data-id="${item.id}" title="還原項目">
+                        <i data-lucide="undo-2" class="lucide w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+            
+            lucide.createIcons();
+            
+            contentDiv.querySelectorAll('.restore-button').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const id = parseInt(btn.dataset.id);
+                    restoreItem(id);
+                };
+            });
+        }
+        
+
+        function renderList() {
+            const container = document.getElementById('list-container');
+            container.innerHTML = Object.entries(appItems).map(([category, items]) => {
+                return renderCategory(category, items);
+            }).join('');
+            
+            document.getElementById('app-title').textContent = appTitle;
+            
+            // Re-render icons after adding new content, and apply theme colors to new buttons
+            lucide.createIcons(); 
+            updateProgressDisplay();
+            renderNavMenu(); 
+            attachEventListeners();
         }
 
-        // 設定 UI 事件監聽器
-        function setupEventListeners() {
-            // 新增項目表單提交
-            document.getElementById('add-item-form').onsubmit = async (e) => {
-                e.preventDefault();
-                const input = document.getElementById('new-item-input');
-                const name = input.value.trim();
-                if (!name || !userId) return;
+        function attachEventListeners() {
+            const listContainer = document.getElementById('list-container');
+            
+            // Clear old listeners before attaching new ones (important for re-render)
+            document.querySelectorAll('.check-button, .delete-button, .flex-grow').forEach(el => {
+                el.onclick = null;
+            });
+            document.getElementById('reset-button').onclick = null;
+            document.getElementById('trash-button').onclick = null;
+            document.getElementById('close-trash-modal-button').onclick = null;
+            document.getElementById('empty-trash-button').onclick = null;
+            document.getElementById('color-picker-button').onclick = null;
+            document.getElementById('close-color-modal').onclick = null;
+            document.getElementById('save-title-edit').onclick = null;
+            document.getElementById('cancel-title-edit').onclick = null;
+            document.getElementById('confirm-modal-cancel').onclick = null;
+            document.getElementById('confirm-modal-action').onclick = null;
 
-                const defaultCategory = currentCategories.length > 0 ? currentCategories[0] : '未分類項目';
 
-                try {
-                    await addDoc(getItemsCollectionRef(), {
-                        name: name,
-                        isPacked: false,
-                        isDeleted: false,
-                        category: defaultCategory,
-                        createdAt: serverTimestamp(),
-                        updatedAt: serverTimestamp(),
-                        // 移除了 colorKey
-                    });
-                    input.value = '';
-                } catch (error) {
-                    console.error("新增項目失敗:", error);
+            // Item clicks (check, delete)
+            listContainer.querySelectorAll('.check-button, .delete-button, .flex-grow').forEach(el => {
+                el.onclick = (e) => {
+                    const category = el.dataset.category;
+                    const id = parseInt(el.dataset.id);
+                    
+                    if (el.classList.contains('delete-button')) {
+                        e.stopPropagation();
+                        deleteItem(category, id);
+                    } else {
+                        e.stopPropagation();
+                        toggleCheck(category, id);
+                    }
+                };
+            });
+
+            // --- Global Button Listeners ---
+            document.getElementById('reset-button').onclick = triggerResetList; 
+            
+            // Color Modal
+            document.getElementById('color-picker-button').onclick = renderColorModal;
+            document.getElementById('close-color-modal').onclick = () => {
+                document.getElementById('color-modal').close();
+            };
+
+            // Trash Modal buttons
+            document.getElementById('trash-button').onclick = () => {
+                renderTrashModal(); 
+                document.getElementById('trash-modal').showModal();
+            };
+            document.getElementById('close-trash-modal-button').onclick = () => {
+                document.getElementById('trash-modal').close();
+            };
+            document.getElementById('empty-trash-button').onclick = triggerEmptyTrash; 
+
+            // --- Title Modal listeners ---
+            document.getElementById('save-title-edit').onclick = saveTitleEdit;
+            document.getElementById('cancel-title-edit').onclick = () => {
+                document.getElementById('title-modal').close();
+            };
+            document.getElementById('title-input').addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); 
+                    saveTitleEdit();
+                }
+            });
+
+            // --- Confirmation Modal listeners ---
+            document.getElementById('confirm-modal-cancel').onclick = () => {
+                document.getElementById('confirm-modal').close();
+                confirmActionCallback = null; 
+            };
+            document.getElementById('confirm-modal-action').onclick = () => {
+                if (confirmActionCallback) {
+                    confirmActionCallback(); 
                 }
             };
-            
-            // 開啟分類管理模態框
-            document.getElementById('manage-categories-btn').onclick = () => {
-                renderCategoryList();
-                document.getElementById('category-modal').showModal();
-            };
-            
-            // 開啟主題色模態框 (NEW)
-            document.getElementById('theme-color-btn').onclick = renderThemePalette;
-            
-            // 新增分類按鈕
-            document.getElementById('add-category-btn').onclick = addCategory;
-            document.getElementById('new-category-input').onkeydown = (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addCategory();
-                }
-            };
-            
-            // 開啟工具箱菜單
-            document.getElementById('menu-btn').onclick = () => {
-                document.getElementById('menu-modal').showModal();
-            };
 
-            // 清空垃圾桶按鈕
-            document.getElementById('empty-trash-btn').onclick = emptyTrash;
-            
-            // 完全重置按鈕
-            document.getElementById('full-reset-btn').onclick = fullReset;
         }
 
-        // 啟動應用程式
-        window.onload = initApp;
-
+        function initApp() {
+            // Load theme first
+            mainColorKey = loadColor();
+            applyTheme();
+            
+            // Load list data
+            appTitle = loadTitle();
+            appItems = loadItems();
+            trashItems = loadTrash();
+            
+            // Render everything
+            renderList();
+        }
     </script>
 </body>
 </html>
